@@ -86,9 +86,23 @@ export function runCalculation(req: EngineRequest): CalculationResult {
     };
   }
 
-  // Propagate blocked flag: if formula is needsReview AND calculate() set blocked,
+  // Propagate blocked flag: if formula is needsReview OR calculate() set blocked,
   // ensure blocked is true so the UI shows the warning overlay instead of the result.
-  const blocked = partial.blocked === true;
+  const blocked = partial.blocked === true || formula.needsReview === true;
+
+  if (blocked) {
+    return {
+      ...partial,
+      value: 0, // Forzar 0 en UI
+      blocked: true,
+      warnings: partial.warnings.length > 0 
+        ? partial.warnings 
+        : ["Fórmula pendiente de validar con archivo fuente. No usar para operación."],
+      formulaId: formula.id,
+      formulaName: formula.name,
+      timestamp: new Date().toISOString(),
+    };
+  }
 
   return {
     ...partial,

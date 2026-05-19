@@ -21,7 +21,7 @@ export interface FormulaOutput {
   unit: string;
 }
 
-export interface TestCase {
+export interface FormulaTestCase {
   description: string;
   inputs: Record<string, number | string>;
   expectedValue: number;
@@ -56,7 +56,7 @@ export interface Formula {
   calculate: CalcFn;
   references?: string[];
   needsReview?: boolean;
-  testCases?: TestCase[];
+  testCases?: FormulaTestCase[];
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -468,11 +468,11 @@ const coiledTubing: Formula = {
   description: "Longitud estimada de CT en el carrete. Fórmula geométrica directa del Excel fuente.",
   icon: "reload-circle",
   inputs: [
-    { key: "flange_height_in", label: "Altura de flange", unit: "in", type: "number", required: true, min: 0.001, placeholder: "Ej: 36" },
-    { key: "free_board_in", label: "Free board", unit: "in", type: "number", required: true, min: 0, placeholder: "Ej: 2" },
-    { key: "core_diameter_in", label: "Diámetro del núcleo", unit: "in", type: "number", required: true, min: 0.001, placeholder: "Ej: 48" },
-    { key: "core_width_in", label: "Ancho del núcleo", unit: "in", type: "number", required: true, min: 0.001, placeholder: "Ej: 30" },
-    { key: "coil_od_in", label: "OD del coil (CT OD)", unit: "in", type: "number", required: true, min: 0.001, placeholder: "Ej: 1.75" },
+    { key: "flangeHeightIn", label: "Altura de flange", unit: "in", type: "number", required: true, min: 0.001, placeholder: "Ej: 36" },
+    { key: "freeBoardIn", label: "Free board", unit: "in", type: "number", required: true, min: 0, placeholder: "Ej: 2" },
+    { key: "coreDiameterIn", label: "Diámetro del núcleo", unit: "in", type: "number", required: true, min: 0.001, placeholder: "Ej: 48" },
+    { key: "coreWidthIn", label: "Ancho del núcleo", unit: "in", type: "number", required: true, min: 0.001, placeholder: "Ej: 30" },
+    { key: "coilOdIn", label: "OD del coil (CT OD)", unit: "in", type: "number", required: true, min: 0.001, placeholder: "Ej: 1.75" },
   ],
   output: { label: "Longitud estimada CT", unit: "ft" },
   formulaText:
@@ -480,15 +480,12 @@ const coiledTubing: Formula = {
   references: ["CoilTubingReelCapacitycalculator.xls"],
   needsReview: true,
   calculate(inputs) {
-    const flangeH = Number(inputs["flange_height_in"]);
-    const freeBoard = Number(inputs["free_board_in"]);
-    const coreD = Number(inputs["core_diameter_in"]);
-    const coreW = Number(inputs["core_width_in"]);
-    const coilOd = Number(inputs["coil_od_in"]);
+    const flangeH = Number(inputs["flangeHeightIn"]);
+    const freeBoard = Number(inputs["freeBoardIn"]);
+    const coreD = Number(inputs["coreDiameterIn"]);
+    const coreW = Number(inputs["coreWidthIn"]);
+    const coilOd = Number(inputs["coilOdIn"]);
     const errors: string[] = [];
-    const warnings: string[] = [
-      "Resultado estimado. Validar contra CoilTubingReelCapacitycalculator.xls antes de uso operacional.",
-    ];
 
     if (isNaN(flangeH) || flangeH <= 0) errors.push("Altura de flange debe ser > 0.");
     if (isNaN(freeBoard) || freeBoard < 0) errors.push("Free board debe ser >= 0.");
@@ -496,27 +493,28 @@ const coiledTubing: Formula = {
     if (isNaN(coreD) || coreD <= 0) errors.push("Diámetro del núcleo debe ser > 0.");
     if (isNaN(coreW) || coreW <= 0) errors.push("Ancho del núcleo debe ser > 0.");
     if (isNaN(coilOd) || coilOd <= 0) errors.push("OD del coil debe ser > 0.");
-    if (errors.length > 0) return { value: 0, unit: "ft", inputs, steps: [], warnings, errors };
+    if (errors.length > 0) return { value: 0, unit: "ft", inputs, steps: [], warnings: [], errors };
 
     const verticalLayers = Math.trunc((flangeH - freeBoard) / coilOd);
     const horizontalWraps = Math.trunc((coreD + flangeH - freeBoard) / coilOd);
     const lengthFt = verticalLayers * horizontalWraps * 0.2618 * coreW;
     const lengthM = lengthFt * 0.3048;
 
-    if (verticalLayers <= 0) { errors.push("Capas verticales resultan 0. Revisar flangeHeight vs freeboard vs coilOD."); return { value: 0, unit: "ft", inputs, steps: [], warnings, errors }; }
-    if (horizontalWraps <= 0) { errors.push("Vueltas horizontales resultan 0. Revisar coreDiameter vs coilOD."); return { value: 0, unit: "ft", inputs, steps: [], warnings, errors }; }
+    if (verticalLayers <= 0) { errors.push("Capas verticales resultan 0. Revisar flangeHeight vs freeboard vs coilOD."); return { value: 0, unit: "ft", inputs, steps: [], warnings: [], errors }; }
+    if (horizontalWraps <= 0) { errors.push("Vueltas horizontales resultan 0. Revisar coreDiameter vs coilOD."); return { value: 0, unit: "ft", inputs, steps: [], warnings: [], errors }; }
 
     return {
       value: Math.round(lengthFt),
       unit: "ft",
       inputs,
+      blocked: true,
       steps: [
         `Capas verticales: TRUNC((${flangeH} - ${freeBoard}) / ${coilOd}) = TRUNC(${(flangeH - freeBoard) / coilOd}) = ${verticalLayers}`,
         `Vueltas horizontales: TRUNC((${coreD} + ${flangeH} - ${freeBoard}) / ${coilOd}) = TRUNC(${(coreD + flangeH - freeBoard) / coilOd}) = ${horizontalWraps}`,
         `Longitud: ${verticalLayers} × ${horizontalWraps} × 0.2618 × ${coreW} = ${lengthFt.toFixed(2)} ft`,
         `(Ref: CoilTubingReelCapacitycalculator.xls — fórmula con TRUNC)`,
       ],
-      warnings,
+      warnings: ["Fórmula pendiente de validar con archivo fuente. No usar para operación."],
       errors: [],
       additionalResults: [
         { label: "Longitud", value: Math.round(lengthM), unit: "m" },
@@ -605,7 +603,6 @@ const bachecologico: Formula = {
   description: "Calcula presiones hidrostáticas y densidad requerida para diseño de bache ecológico en operaciones de CT/wireline.",
   icon: "water",
   inputs: [
-    { key: "de_tp_in", label: "DE de TP", unit: "in", type: "number", required: true, min: 0.001, placeholder: "Ej: 2.875" },
     { key: "di_tp_in", label: "DI de TP", unit: "in", type: "number", required: true, min: 0.001, placeholder: "Ej: 2.441" },
     { key: "densidad_lodo_grcc", label: "Densidad del lodo", unit: "gr/cc", type: "number", required: true, min: 0.001, placeholder: "Ej: 1.05" },
     { key: "volumen_tapon_m3", label: "Volumen del tapón", unit: "m³", type: "number", required: true, min: 0.001, placeholder: "Ej: 0.5" },
@@ -625,7 +622,6 @@ const bachecologico: Formula = {
   references: ["Bache ecologico.xls"],
   needsReview: false,
   calculate(inputs) {
-    const de_tp = Number(inputs["de_tp_in"]);
     const di_tp = Number(inputs["di_tp_in"]);
     const densidad = Number(inputs["densidad_lodo_grcc"]);
     const vol_tapon = Number(inputs["volumen_tapon_m3"]);
@@ -634,9 +630,7 @@ const bachecologico: Formula = {
     const errors: string[] = [];
     const warnings: string[] = [];
 
-    if (isNaN(de_tp) || de_tp <= 0) errors.push("DE de TP debe ser > 0.");
     if (isNaN(di_tp) || di_tp <= 0) errors.push("DI de TP debe ser > 0.");
-    if (!isNaN(de_tp) && !isNaN(di_tp) && de_tp <= di_tp) errors.push("DE de TP debe ser mayor que DI de TP.");
     if (isNaN(densidad) || densidad <= 0) errors.push("Densidad del lodo debe ser > 0.");
     if (isNaN(vol_tapon) || vol_tapon <= 0) errors.push("Volumen del tapón debe ser > 0.");
     if (isNaN(longitud_desplazar) || longitud_desplazar < 0) errors.push("Longitud a desplazar debe ser >= 0.");
@@ -723,12 +717,10 @@ const hydraulics: Formula = {
   output: { label: "ECD estimado", unit: "ppg" },
   formulaText: "PENDIENTE — Validar con HIDRAULICA_RIVERO.xls y Hydraulics_IPM.xls",
   references: ["HIDRAULICA_RIVERO.xls", "Hydraulics_IPM.xls"],
-  needsReview: true, // BLOCKED — do not display result as valid
+  needsReview: true, // BLOCKED
   calculate(inputs) {
     const warnings = [
-      "⛔ FÓRMULAS PENDIENTES DE VALIDAR — No usar para decisiones operacionales.",
-      "Pendiente: extraer y validar fórmulas de HIDRAULICA_RIVERO.xls y Hydraulics_IPM.xls.",
-      "Submódulos pendientes: ΔP sarta interna, ΔP anular, ΔP barrena, ECD, nozzles, Bingham Plastic, Power Law, Herschel-Bulkley.",
+      "Fórmula pendiente de validar con HIDRAULICA_RIVERO.xls y Hydraulics_IPM.xls. No usar para operación.",
     ];
     // Return blocked result — calculationEngine will enforce blocked=true
     return {
