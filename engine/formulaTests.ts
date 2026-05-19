@@ -61,13 +61,6 @@ function runAllTests(): void {
       inputs: { d_mayor: 8.5, d_menor: 5.0, length_m: 2000 },
       expectedValue: ((8.5 * 8.5 - 5.0 * 5.0) / 1029.4) * (2000 / 0.3048),
     },
-    // ── Validaciones de error para volumen anular ─────────────────────────
-    {
-      formulaId: "annular-volume",
-      description: "ERROR: D_mayor=1.25 <= D_menor=1.8 → debe dar error",
-      inputs: { d_mayor: 1.25, d_menor: 1.8, length_m: 1410 },
-      expectedValue: 0, // engine returns 0 on error
-    },
     // ── Velocidad en Tubería ───────────────────────────────────────────────
     {
       formulaId: "fluid-velocity",
@@ -120,19 +113,6 @@ function runAllTests(): void {
       inputs: { od_tf_in: 2.0, id_tf_in: 1.75, length_m: 2500 },
       expectedValue: ((2.0 * 2.0 - 1.75 * 1.75) / 1029.4) * (2500 / 0.3048),
     },
-    // ── Validaciones de error ──────────────────────────────────────────────
-    {
-      formulaId: "pipe-volume",
-      description: "ERROR: length <= 0 → debe dar error",
-      inputs: { di: 2.0, length_m: 0 },
-      expectedValue: 0,
-    },
-    {
-      formulaId: "tf-metal-displacement",
-      description: "ERROR: OD=1.0 <= ID=1.5 → debe dar error",
-      inputs: { od_tf_in: 1.0, id_tf_in: 1.5, length_m: 1800 },
-      expectedValue: 0,
-    },
     // ── Coiled Tubing Geométrico ───────────────────────────────────────────
     {
       formulaId: "coiled-tubing",
@@ -154,10 +134,40 @@ function runAllTests(): void {
       inputs: { di_tp_in: 2.441, densidad_lodo_grcc: 1.05, volumen_tapon_m3: 0.5, longitud_desplazar_m: 100, profundidad_m: 1500 },
       expectedValue: ( ((1500 * 1.05 / 10) - ((1500 - (0.5 / (Math.pow(2.441, 2) * 0.5067 / 1000)) - 100) * 1.05 / 10)) * 10 ) / (0.5 / (Math.pow(2.441, 2) * 0.5067 / 1000)),
     },
-    // ── Hydraulics Blocked ─────────────────────────────────────────────────
+    // ── Validaciones de error y bloqueos ───────────────────────────────────
+    {
+      formulaId: "annular-volume",
+      description: "ERROR: D_mayor=1.25 <= D_menor=1.8 → debe dar error",
+      inputs: { d_mayor: 1.25, d_menor: 1.8, length_m: 1410 },
+      expectedValue: 0, // engine returns 0 on error
+    },
+    {
+      formulaId: "pipe-volume",
+      description: "ERROR: length <= 0 → debe dar error",
+      inputs: { di: 2.0, length_m: 0 },
+      expectedValue: 0,
+    },
+    {
+      formulaId: "tf-metal-displacement",
+      description: "ERROR: OD=1.0 <= ID=1.5 → debe dar error",
+      inputs: { od_tf_in: 1.0, id_tf_in: 1.5, length_m: 1800 },
+      expectedValue: 0,
+    },
+    {
+      formulaId: "bache-ecologico",
+      description: "ERROR: prof <= longitud_tapon + longitud_desplazar",
+      inputs: { di_tp_in: 2.441, densidad_lodo_grcc: 1.05, volumen_tapon_m3: 0.5, longitud_desplazar_m: 100, profundidad_m: 100 },
+      expectedValue: 0,
+    },
+    {
+      formulaId: "coiled-tubing",
+      description: "ERROR: coilOdIn <= 0",
+      inputs: { flangeHeightIn: 36, freeBoardIn: 2, coreDiameterIn: 48, coreWidthIn: 30, coilOdIn: 0 },
+      expectedValue: 0,
+    },
     {
       formulaId: "hydraulics",
-      description: "Debe retornar 0 y estar bloqueada por needsReview",
+      description: "BLOCKED: Debe retornar 0 y estar bloqueada por needsReview",
       inputs: { flow_gpm: 400, mud_ppg: 10.5, pv_cp: 20, yp_lbft2: 15, dp_id_in: 4.276, hole_in: 8.5, depth_ft: 8000 },
       expectedValue: 0,
     }
@@ -168,17 +178,17 @@ function runAllTests(): void {
     total++;
     const result = runCalculation({ formulaId: tc.formulaId, inputs: tc.inputs });
     const tol = tc.tolerance ?? DEFAULT_TOLERANCE;
-    const hasErrors = result.errors.length > 0;
+    const hasErrorsOrBlocked = result.errors.length > 0 || result.blocked === true;
 
     let testPassed: boolean;
     let errorPct = 0;
 
     if (tc.expectedValue === 0) {
-      // Expect error / 0 result
-      testPassed = result.value === 0;
+      // Expect error / 0 result / blocked result
+      testPassed = result.value === 0 && hasErrorsOrBlocked;
     } else {
       errorPct = Math.abs(result.value - tc.expectedValue) / Math.abs(tc.expectedValue);
-      testPassed = errorPct <= tol && !hasErrors;
+      testPassed = errorPct <= tol && !hasErrorsOrBlocked;
     }
 
     if (testPassed) passed++;

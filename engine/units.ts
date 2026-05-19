@@ -143,7 +143,8 @@ const flow: UnitCategoryDef = {
     { id: "m3_min", label: "m³/minuto",   symbol: "m³/min", ...lin(1/60) },
     { id: "m3_h",   label: "m³/hora",     symbol: "m³/h",   ...lin(1/3600) },
     { id: "L_s",    label: "L/segundo",   symbol: "L/s",    ...lin(0.001) },
-    { id: "L_min",  label: "L/minuto (LPM)", symbol: "LPM", ...lin(0.001/60) },
+    { id: "L_min",  label: "L/minuto",    symbol: "L/min",  ...lin(0.001/60) },
+    { id: "LPM",    label: "LPM (L/min)", symbol: "LPM",    ...lin(0.001/60) }, // ALIAS AGREGADO
     { id: "BPM",    label: "Barril/minuto",  symbol: "BPM", ...lin(0.158987/60) },
     { id: "BPD",    label: "Barril/día",     symbol: "BPD", ...lin(0.158987/86400) },
     { id: "GPM",    label: "Galón/minuto (US)", symbol: "GPM", ...lin(0.00378541/60) },
@@ -165,7 +166,8 @@ const density: UnitCategoryDef = {
     { id: "kg_m3",  label: "kg/m³",        symbol: "kg/m³",  ...lin(1) },
     { id: "g_cc",   label: "g/cc (gr/cc)",  symbol: "g/cc",   ...lin(1000) },
     { id: "g_L",    label: "g/L",           symbol: "g/L",    ...lin(1) },
-    { id: "ppg",    label: "lb/gal (ppg)",  symbol: "ppg",    ...lin(119.826) },
+    { id: "ppg",    label: "lb/gal (ppg)",  symbol: "ppg",    ...lin(119.826) }, // ID PPG DIRECTO
+    { id: "lb_gal", label: "lb/gal",        symbol: "lb/gal", ...lin(119.826) }, // ALIAS PARA PPG
     { id: "lb_ft3", label: "lb/ft³",        symbol: "lb/ft³", ...lin(16.01846) },
     { id: "lb_in3", label: "lb/in³",        symbol: "lb/in³", ...lin(27679.9) },
     { id: "sg",     label: "Gravedad esp. (SG)", symbol: "SG",...lin(1000) },
@@ -261,6 +263,7 @@ const torque: UnitCategoryDef = {
     { id: "Nm",    label: "Newton·metro",  symbol: "N·m",   ...lin(1) },
     { id: "kNm",   label: "Kilonewton·m",  symbol: "kN·m",  ...lin(1000) },
     { id: "ft_lb", label: "Pie·libra",     symbol: "ft·lb", ...lin(1.35582) },
+    { id: "ft-lb", label: "Pie·libra (alias)", symbol: "ft·lb", ...lin(1.35582) }, // ALIAS AGREGADO
     { id: "in_lb", label: "Pulgada·libra", symbol: "in·lb", ...lin(0.112985) },
     { id: "in_oz", label: "Pulgada·onza",  symbol: "in·oz", ...lin(0.00706155) },
     { id: "kgf_m", label: "kgf·metro",     symbol: "kgf·m", ...lin(9.80665) },

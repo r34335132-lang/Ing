@@ -91,13 +91,17 @@ export function runCalculation(req: EngineRequest): CalculationResult {
   const blocked = partial.blocked === true || formula.needsReview === true;
 
   if (blocked) {
+    const defaultWarning = "Fórmula pendiente de validar con archivo fuente. No usar para operación.";
+    const warnings = partial.warnings || [];
+    if (!warnings.includes(defaultWarning)) {
+      warnings.push(defaultWarning);
+    }
+
     return {
       ...partial,
-      value: 0, // Forzar 0 en UI
+      value: 0, // Forzar 0 en UI para evitar uso operacional accidental
       blocked: true,
-      warnings: partial.warnings.length > 0 
-        ? partial.warnings 
-        : ["Fórmula pendiente de validar con archivo fuente. No usar para operación."],
+      warnings,
       formulaId: formula.id,
       formulaName: formula.name,
       timestamp: new Date().toISOString(),
