@@ -380,8 +380,8 @@ const tfDisplacement: Formula = {
       warnings,
       errors: [],
       additionalResults: [
-        { label: "Desplazamiento", value: Math.round(vol_liters * 100) / 100, unit: "litros" },
-        { label: "Desplazamiento", value: Math.round(vol_m3 * 10000) / 10000, unit: "m³" },
+        { label: "Litros", value: Math.round(vol_liters * 100) / 100, unit: "L" },
+        { label: "m³", value: Math.round(vol_m3 * 10000) / 10000, unit: "m³" },
         { label: "Longitud", value: Math.round(length_ft * 100) / 100, unit: "ft" },
       ],
     };
@@ -449,8 +449,8 @@ const tfMetalDisplacement: Formula = {
       warnings,
       errors: [],
       additionalResults: [
-        { label: "Desplazamiento metálico", value: Math.round(vol_liters * 100) / 100, unit: "litros" },
-        { label: "Desplazamiento metálico", value: Math.round(vol_m3 * 10000) / 10000, unit: "m³" },
+        { label: "Litros", value: Math.round(vol_liters * 100) / 100, unit: "L" },
+        { label: "m³", value: Math.round(vol_m3 * 10000) / 10000, unit: "m³" },
       ],
     };
   },
@@ -586,7 +586,7 @@ const fillPenetrationVelocity: Formula = {
       warnings,
       errors: [],
       additionalResults: [
-        { label: "Velocidad penetración", value: Math.round(vel_m_min * 1000) / 1000, unit: "m/min" },
+        { label: "m/min", value: Math.round(vel_m_min * 1000) / 1000, unit: "m/min" },
       ],
     };
   },
@@ -683,11 +683,12 @@ const bachecologico: Formula = {
       warnings,
       errors: [],
       additionalResults: [
-        { label: "Cap. TP", value: Math.round(cap_tp_m3_m * 1000000) / 1000000, unit: "m³/m" },
+        { label: "Capacidad TP", value: Math.round(cap_tp_m3_m * 1000000) / 1000000, unit: "m³/m" },
         { label: "Longitud tapón", value: Math.round(longitud_tapon_m * 100) / 100, unit: "m" },
         { label: "P. hid. total", value: Math.round(p_hid_total * 10000) / 10000, unit: "kg/cm²" },
         { label: "P. hid. parcial", value: Math.round(p_hid_parcial * 10000) / 10000, unit: "kg/cm²" },
         { label: "P. faltante", value: Math.round(p_faltante * 10000) / 10000, unit: "kg/cm²" },
+        { label: "Columna eq.", value: Math.round(col_equiv_m * 100) / 100, unit: "m" },
       ],
     };
   },
@@ -719,19 +720,17 @@ const hydraulics: Formula = {
   references: ["HIDRAULICA_RIVERO.xls", "Hydraulics_IPM.xls"],
   needsReview: true, // BLOCKED
   calculate(inputs) {
-    const warnings = [
-      "Fórmula pendiente de validar con HIDRAULICA_RIVERO.xls y Hydraulics_IPM.xls. No usar para operación.",
-    ];
     // Return blocked result — calculationEngine will enforce blocked=true
     return {
       value: 0,
       unit: "ppg",
       inputs,
       steps: [
-        "Fórmula pendiente de validar con archivo fuente.",
-        "No se muestran resultados para evitar uso operacional de datos no validados.",
+        "Fórmula pendiente de validar con HIDRAULICA_RIVERO.xls y Hydraulics_IPM.xls."
       ],
-      warnings,
+      warnings: [
+        "Fórmula pendiente de validar con archivo fuente. No usar para operación."
+      ],
       errors: [],
       blocked: true,
     };

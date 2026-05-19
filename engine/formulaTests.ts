@@ -133,6 +133,34 @@ function runAllTests(): void {
       inputs: { od_tf_in: 1.0, id_tf_in: 1.5, length_m: 1800 },
       expectedValue: 0,
     },
+    // ── Coiled Tubing Geométrico ───────────────────────────────────────────
+    {
+      formulaId: "coiled-tubing",
+      description: "flange=36, free=2, coreD=48, coreW=30, coilOd=1.75",
+      inputs: { flangeHeightIn: 36, freeBoardIn: 2, coreDiameterIn: 48, coreWidthIn: 30, coilOdIn: 1.75 },
+      expectedValue: Math.trunc((36 - 2) / 1.75) * Math.trunc((48 + 36 - 2) / 1.75) * 0.2618 * 30,
+    },
+    // ── Velocidad Penetración Relleno ──────────────────────────────────────
+    {
+      formulaId: "fill-penetration-velocity",
+      description: "d_mayor=2.99, od_tf=1.5, bpm=1.5, acarreo=80",
+      inputs: { d_mayor_in: 2.99, od_tf_in: 1.5, bpm: 1.5, acarreo_percent: 80 },
+      expectedValue: (80 * 1.5) / (0.6 * 2.65 * 0.097 * (Math.pow(2.99, 2) - Math.pow(1.5, 2))),
+    },
+    // ── Bache Ecológico ────────────────────────────────────────────────────
+    {
+      formulaId: "bache-ecologico",
+      description: "di=2.441, dens=1.05, vol=0.5, desp=100, prof=1500",
+      inputs: { di_tp_in: 2.441, densidad_lodo_grcc: 1.05, volumen_tapon_m3: 0.5, longitud_desplazar_m: 100, profundidad_m: 1500 },
+      expectedValue: ( ((1500 * 1.05 / 10) - ((1500 - (0.5 / (Math.pow(2.441, 2) * 0.5067 / 1000)) - 100) * 1.05 / 10)) * 10 ) / (0.5 / (Math.pow(2.441, 2) * 0.5067 / 1000)),
+    },
+    // ── Hydraulics Blocked ─────────────────────────────────────────────────
+    {
+      formulaId: "hydraulics",
+      description: "Debe retornar 0 y estar bloqueada por needsReview",
+      inputs: { flow_gpm: 400, mud_ppg: 10.5, pv_cp: 20, yp_lbft2: 15, dp_id_in: 4.276, hole_in: 8.5, depth_ft: 8000 },
+      expectedValue: 0,
+    }
   ];
 
   // Run inline tests
