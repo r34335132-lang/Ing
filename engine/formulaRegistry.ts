@@ -1,3 +1,9 @@
+// ═════════════════════════════════════════════════════════════════════════════
+// OilCalc Pro — Formula Registry
+// Source of truth for all formulas. UI is driven entirely from metadata here.
+// To add a formula: append a new Formula object to the registry array at bottom.
+// ═════════════════════════════════════════════════════════════════════════════
+
 export interface FormulaInput {
   key: string;
   label: string;
@@ -15,6 +21,13 @@ export interface FormulaOutput {
   unit: string;
 }
 
+export interface TestCase {
+  description: string;
+  inputs: Record<string, number | string>;
+  expectedValue: number;
+  tolerance?: number; // relative (0-1), default 0.001 = 0.1%
+}
+
 export interface CalculationResult {
   value: number;
   unit: string;
@@ -25,6 +38,7 @@ export interface CalculationResult {
   warnings: string[];
   errors: string[];
   timestamp: string;
+  blocked?: boolean; // true when needsReview prevents showing result as valid
   additionalResults?: Array<{ label: string; value: number; unit: string }>;
 }
 
@@ -42,11 +56,13 @@ export interface Formula {
   calculate: CalcFn;
   references?: string[];
   needsReview?: boolean;
+  testCases?: TestCase[];
 }
 
-// ──────────────────────────────────────────────────────────────────────────────
-// PIPE VOLUME CALCULATOR
-// ──────────────────────────────────────────────────────────────────────────────
+// ─────────────────────────────────────────────────────────────────────────────
+// 1. VOLUMEN INTERNO DE TUBERÍA
+// Source: Bache ecologico.xls · CALCULO VOLUMEN TF.xls
+// ─────────────────────────────────────────────────────────────────────────────
 const pipeVolume: Formula = {
   id: "pipe-volume",
   name: "Volumen Interno de Tubería",
@@ -54,12 +70,27 @@ const pipeVolume: Formula = {
   description: "Calcula el volumen interno de una tubería dado su diámetro interior y longitud.",
   icon: "pipe",
   inputs: [
-    { key: "di", label: "Diámetro Interior (DI)", unit: "in", type: "number", required: true, min: 0.001, placeholder: "Ej: 4.276" },
-    { key: "length_m", label: "Longitud", unit: "m", type: "number", required: true, min: 0.001, placeholder: "Ej: 1000" },
+    { key: "di", label: "Diámetro Interior (DI)", unit: "in", type: "number", required: true, min: 0.001, placeholder: "Ej: 1.8" },
+    { key: "length_m", label: "Longitud", unit: "m", type: "number", required: true, min: 0.001, placeholder: "Ej: 1410" },
   ],
   output: { label: "Volumen Interno", unit: "bbl" },
   formulaText: "V(bbl) = (DI² / 1029.4) × (L(m) / 0.3048)",
   references: ["Bache ecologico.xls", "CALCULO VOLUMEN TF.xls"],
+  needsReview: false,
+  testCases: [
+    {
+      description: "DI=1.8in, L=1410m → ~14.567 bbl",
+      inputs: { di: 1.8, length_m: 1410 },
+      expectedValue: (1.8 * 1.8 / 1029.4) * (1410 / 0.3048),
+      tolerance: 0.001,
+    },
+    {
+      description: "DI=4.276in, L=1000m → validación cruzada",
+      inputs: { di: 4.276, length_m: 1000 },
+      expectedValue: (4.276 * 4.276 / 1029.4) * (1000 / 0.3048),
+      tolerance: 0.001,
+    },
+  ],
   calculate(inputs) {
     const di = Number(inputs["di"]);
     const length_m = Number(inputs["length_m"]);
@@ -70,7 +101,7 @@ const pipeVolume: Formula = {
     if (errors.length > 0) return { value: 0, unit: "bbl", inputs, steps: [], warnings, errors };
 
     const length_ft = length_m / 0.3048;
-    const capacity_bbl_per_ft = di * di / 1029.4;
+    const capacity_bbl_per_ft = (di * di) / 1029.4;
     const vol_bbl = capacity_bbl_per_ft * length_ft;
     const vol_liters = vol_bbl * 158.987;
     const vol_m3 = vol_bbl * 0.158987;
@@ -84,8 +115,8 @@ const pipeVolume: Formula = {
       inputs,
       steps: [
         `Longitud en pies: L(ft) = ${length_m} m ÷ 0.3048 = ${length_ft.toFixed(4)} ft`,
-        `Capacidad por pie: C = DI² ÷ 1029.4 = ${di}² ÷ 1029.4 = ${capacity_bbl_per_ft.toFixed(6)} bbl/ft`,
-        `Volumen total: V = ${capacity_bbl_per_ft.toFixed(6)} × ${length_ft.toFixed(4)} = ${vol_bbl.toFixed(4)} bbl`,
+        `Capacidad por pie: C = DI² ÷ 1029.4 = ${di}² ÷ 1029.4 = ${capacity_bbl_per_ft.toFixed(7)} bbl/ft`,
+        `Volumen total: V = ${capacity_bbl_per_ft.toFixed(7)} × ${length_ft.toFixed(4)} = ${vol_bbl.toFixed(4)} bbl`,
       ],
       warnings,
       errors: [],
@@ -98,23 +129,33 @@ const pipeVolume: Formula = {
   },
 };
 
-// ──────────────────────────────────────────────────────────────────────────────
-// ANNULAR VOLUME CALCULATOR
-// ──────────────────────────────────────────────────────────────────────────────
+// ─────────────────────────────────────────────────────────────────────────────
+// 2. VOLUMEN ANULAR
+// Source: correjida calculo de t.p.,t.r. y espacio anular.xls
+// ─────────────────────────────────────────────────────────────────────────────
 const annularVolume: Formula = {
   id: "annular-volume",
   name: "Volumen Anular",
   category: "Tuberías",
-  description: "Calcula el volumen anular entre dos tubos concéntricos o entre tubería y agujero.",
+  description: "Calcula el volumen anular entre agujero o TR y tubería de perforación/TF.",
   icon: "circle",
   inputs: [
-    { key: "d_mayor", label: "Diámetro Mayor (agujero/TR)", unit: "in", type: "number", required: true, min: 0.001, placeholder: "Ej: 8.5" },
-    { key: "d_menor", label: "Diámetro Menor (tubería)", unit: "in", type: "number", required: true, min: 0.001, placeholder: "Ej: 5.0" },
-    { key: "length_m", label: "Longitud", unit: "m", type: "number", required: true, min: 0.001, placeholder: "Ej: 1000" },
+    { key: "d_mayor", label: "Diámetro Mayor (agujero/TR)", unit: "in", type: "number", required: true, min: 0.001, placeholder: "Ej: 1.8" },
+    { key: "d_menor", label: "Diámetro Menor (TP/TF)", unit: "in", type: "number", required: true, min: 0.001, placeholder: "Ej: 1.25" },
+    { key: "length_m", label: "Longitud", unit: "m", type: "number", required: true, min: 0.001, placeholder: "Ej: 1410" },
   ],
   output: { label: "Volumen Anular", unit: "bbl" },
   formulaText: "V(bbl) = ((D_mayor² - D_menor²) / 1029.4) × (L(m) / 0.3048)",
   references: ["correjida calculo de t.p.,t.r. y espacio anular.xls"],
+  needsReview: false,
+  testCases: [
+    {
+      description: "D_mayor=1.8in, D_menor=1.25in, L=1410m",
+      inputs: { d_mayor: 1.8, d_menor: 1.25, length_m: 1410 },
+      expectedValue: ((1.8 * 1.8 - 1.25 * 1.25) / 1029.4) * (1410 / 0.3048),
+      tolerance: 0.001,
+    },
+  ],
   calculate(inputs) {
     const d_mayor = Number(inputs["d_mayor"]);
     const d_menor = Number(inputs["d_menor"]);
@@ -124,7 +165,7 @@ const annularVolume: Formula = {
 
     if (isNaN(d_mayor) || d_mayor <= 0) errors.push("El diámetro mayor debe ser mayor que cero.");
     if (isNaN(d_menor) || d_menor <= 0) errors.push("El diámetro menor debe ser mayor que cero.");
-    if (!isNaN(d_mayor) && !isNaN(d_menor) && d_mayor <= d_menor) errors.push("El diámetro mayor debe ser estrictamente mayor que el diámetro menor.");
+    if (!isNaN(d_mayor) && !isNaN(d_menor) && d_mayor <= d_menor) errors.push("D_mayor debe ser estrictamente mayor que D_menor.");
     if (isNaN(length_m) || length_m <= 0) errors.push("La longitud debe ser mayor que cero.");
     if (errors.length > 0) return { value: 0, unit: "bbl", inputs, steps: [], warnings, errors };
 
@@ -135,17 +176,15 @@ const annularVolume: Formula = {
     const vol_liters = vol_bbl * 158.987;
     const vol_m3 = vol_bbl * 0.158987;
 
-    if (d_mayor > 36) warnings.push("Diámetro mayor inusualmente grande. Verificar unidades.");
-
     return {
       value: Math.round(vol_bbl * 10000) / 10000,
       unit: "bbl",
       inputs,
       steps: [
-        `Longitud en pies: L(ft) = ${length_m} m ÷ 0.3048 = ${length_ft.toFixed(4)} ft`,
-        `Diferencia de diámetros cuadrados: ${d_mayor}² - ${d_menor}² = ${(d_mayor*d_mayor).toFixed(4)} - ${(d_menor*d_menor).toFixed(4)} = ${diff.toFixed(4)} in²`,
-        `Capacidad anular: C = ${diff.toFixed(4)} ÷ 1029.4 = ${capacity.toFixed(6)} bbl/ft`,
-        `Volumen anular: V = ${capacity.toFixed(6)} × ${length_ft.toFixed(4)} = ${vol_bbl.toFixed(4)} bbl`,
+        `Longitud en pies: L(ft) = ${length_m} ÷ 0.3048 = ${length_ft.toFixed(4)} ft`,
+        `Diferencia cuadrados: ${d_mayor}² - ${d_menor}² = ${(d_mayor * d_mayor).toFixed(6)} - ${(d_menor * d_menor).toFixed(6)} = ${diff.toFixed(6)} in²`,
+        `Capacidad anular: C = ${diff.toFixed(6)} ÷ 1029.4 = ${capacity.toFixed(8)} bbl/ft`,
+        `Volumen anular: V = ${capacity.toFixed(8)} × ${length_ft.toFixed(4)} = ${vol_bbl.toFixed(4)} bbl`,
       ],
       warnings,
       errors: [],
@@ -158,22 +197,32 @@ const annularVolume: Formula = {
   },
 };
 
-// ──────────────────────────────────────────────────────────────────────────────
-// FLUID VELOCITY (PIPE)
-// ──────────────────────────────────────────────────────────────────────────────
+// ─────────────────────────────────────────────────────────────────────────────
+// 3. VELOCIDAD DE FLUIDO EN TUBERÍA
+// Source: HIDRAULICA_RIVERO.xls · Hydraulics_IPM.xls
+// ─────────────────────────────────────────────────────────────────────────────
 const fluidVelocity: Formula = {
   id: "fluid-velocity",
   name: "Velocidad de Fluido en Tubería",
   category: "Hidráulica",
-  description: "Calcula la velocidad del fluido dentro de una tubería dado el diámetro interior y el gasto.",
+  description: "Calcula la velocidad del fluido dentro de la tubería dado el DI y el gasto de bombeo.",
   icon: "speedometer",
   inputs: [
-    { key: "di", label: "Diámetro Interior (DI)", unit: "in", type: "number", required: true, min: 0.001, placeholder: "Ej: 4.276" },
-    { key: "flow_bpm", label: "Gasto de Bombeo", unit: "BPM", type: "number", required: true, min: 0, placeholder: "Ej: 5.5" },
+    { key: "di", label: "Diámetro Interior (DI)", unit: "in", type: "number", required: true, min: 0.001, placeholder: "Ej: 2.441" },
+    { key: "flow_bpm", label: "Gasto de Bombeo", unit: "BPM", type: "number", required: true, min: 0, placeholder: "Ej: 1.5" },
   ],
   output: { label: "Velocidad en Tubería", unit: "ft/min" },
   formulaText: "V(ft/min) = BPM / (DI² / 1029.4)",
   references: ["HIDRAULICA_RIVERO.xls", "Hydraulics_IPM.xls"],
+  needsReview: false,
+  testCases: [
+    {
+      description: "DI=2.441in, BPM=1.5",
+      inputs: { di: 2.441, flow_bpm: 1.5 },
+      expectedValue: 1.5 / ((2.441 * 2.441) / 1029.4),
+      tolerance: 0.001,
+    },
+  ],
   calculate(inputs) {
     const di = Number(inputs["di"]);
     const flow_bpm = Number(inputs["flow_bpm"]);
@@ -181,24 +230,23 @@ const fluidVelocity: Formula = {
     const warnings: string[] = [];
 
     if (isNaN(di) || di <= 0) errors.push("El diámetro interior debe ser mayor que cero.");
-    if (isNaN(flow_bpm) || flow_bpm < 0) errors.push("El gasto debe ser mayor o igual que cero.");
+    if (isNaN(flow_bpm) || flow_bpm < 0) errors.push("El gasto debe ser >= 0.");
     if (errors.length > 0) return { value: 0, unit: "ft/min", inputs, steps: [], warnings, errors };
 
-    const capacity = di * di / 1029.4;
-    if (capacity === 0) { errors.push("División entre cero: diámetro inválido."); return { value: 0, unit: "ft/min", inputs, steps: [], warnings, errors }; }
+    const capacity = (di * di) / 1029.4;
     const velocity_ft_min = flow_bpm / capacity;
     const velocity_m_min = velocity_ft_min * 0.3048;
 
-    if (velocity_ft_min > 1000) warnings.push("Velocidad muy alta. Riesgo de erosión en tubería.");
-    if (velocity_ft_min < 10 && flow_bpm > 0) warnings.push("Velocidad baja. Puede ser insuficiente para limpieza del agujero.");
+    if (velocity_ft_min > 1000) warnings.push("Velocidad muy alta (>1000 ft/min). Riesgo de erosión.");
+    if (velocity_ft_min < 10 && flow_bpm > 0) warnings.push("Velocidad baja (<10 ft/min). Puede ser insuficiente.");
 
     return {
       value: Math.round(velocity_ft_min * 100) / 100,
       unit: "ft/min",
       inputs,
       steps: [
-        `Capacidad de tubería: C = DI² ÷ 1029.4 = ${di}² ÷ 1029.4 = ${capacity.toFixed(6)} bbl/ft`,
-        `Velocidad: V = BPM ÷ C = ${flow_bpm} ÷ ${capacity.toFixed(6)} = ${velocity_ft_min.toFixed(4)} ft/min`,
+        `Capacidad: C = DI² ÷ 1029.4 = ${di}² ÷ 1029.4 = ${capacity.toFixed(7)} bbl/ft`,
+        `Velocidad: V = ${flow_bpm} BPM ÷ ${capacity.toFixed(7)} = ${velocity_ft_min.toFixed(4)} ft/min`,
       ],
       warnings,
       errors: [],
@@ -209,23 +257,33 @@ const fluidVelocity: Formula = {
   },
 };
 
-// ──────────────────────────────────────────────────────────────────────────────
-// ANNULAR VELOCITY
-// ──────────────────────────────────────────────────────────────────────────────
+// ─────────────────────────────────────────────────────────────────────────────
+// 4. VELOCIDAD ANULAR
+// Source: HIDRAULICA_RIVERO.xls · correjida calculo de t.p.,t.r. y espacio anular.xls
+// ─────────────────────────────────────────────────────────────────────────────
 const annularVelocity: Formula = {
   id: "annular-velocity",
   name: "Velocidad Anular",
   category: "Hidráulica",
-  description: "Calcula la velocidad de retorno del fluido en el espacio anular.",
+  description: "Calcula la velocidad de retorno del fluido en el espacio anular. Mínimo recomendado: 100 ft/min.",
   icon: "speedometer-outline",
   inputs: [
-    { key: "d_mayor", label: "Diámetro Mayor (agujero/TR)", unit: "in", type: "number", required: true, min: 0.001, placeholder: "Ej: 8.5" },
-    { key: "d_menor", label: "Diámetro Menor (tubería)", unit: "in", type: "number", required: true, min: 0.001, placeholder: "Ej: 5.0" },
-    { key: "flow_bpm", label: "Gasto de Bombeo", unit: "BPM", type: "number", required: true, min: 0, placeholder: "Ej: 5.5" },
+    { key: "d_mayor", label: "Diámetro Mayor (agujero/TR)", unit: "in", type: "number", required: true, min: 0.001, placeholder: "Ej: 2.99" },
+    { key: "d_menor", label: "Diámetro Menor (TP/TF)", unit: "in", type: "number", required: true, min: 0.001, placeholder: "Ej: 1.5" },
+    { key: "flow_bpm", label: "Gasto de Bombeo", unit: "BPM", type: "number", required: true, min: 0, placeholder: "Ej: 1.5" },
   ],
   output: { label: "Velocidad Anular", unit: "ft/min" },
   formulaText: "VA(ft/min) = BPM / ((D_mayor² - D_menor²) / 1029.4)",
   references: ["HIDRAULICA_RIVERO.xls", "correjida calculo de t.p.,t.r. y espacio anular.xls"],
+  needsReview: false,
+  testCases: [
+    {
+      description: "D_mayor=2.99, D_menor=1.5, BPM=1.5",
+      inputs: { d_mayor: 2.99, d_menor: 1.5, flow_bpm: 1.5 },
+      expectedValue: 1.5 / ((2.99 * 2.99 - 1.5 * 1.5) / 1029.4),
+      tolerance: 0.001,
+    },
+  ],
   calculate(inputs) {
     const d_mayor = Number(inputs["d_mayor"]);
     const d_menor = Number(inputs["d_menor"]);
@@ -235,8 +293,8 @@ const annularVelocity: Formula = {
 
     if (isNaN(d_mayor) || d_mayor <= 0) errors.push("El diámetro mayor debe ser mayor que cero.");
     if (isNaN(d_menor) || d_menor <= 0) errors.push("El diámetro menor debe ser mayor que cero.");
-    if (!isNaN(d_mayor) && !isNaN(d_menor) && d_mayor <= d_menor) errors.push("El diámetro mayor debe ser estrictamente mayor que el diámetro menor.");
-    if (isNaN(flow_bpm) || flow_bpm < 0) errors.push("El gasto debe ser mayor o igual que cero.");
+    if (!isNaN(d_mayor) && !isNaN(d_menor) && d_mayor <= d_menor) errors.push("D_mayor debe ser estrictamente mayor que D_menor.");
+    if (isNaN(flow_bpm) || flow_bpm < 0) errors.push("El gasto debe ser >= 0.");
     if (errors.length > 0) return { value: 0, unit: "ft/min", inputs, steps: [], warnings, errors };
 
     const diff = d_mayor * d_mayor - d_menor * d_menor;
@@ -244,17 +302,17 @@ const annularVelocity: Formula = {
     const velocity_ft_min = flow_bpm / annular_capacity;
     const velocity_m_min = velocity_ft_min * 0.3048;
 
-    if (velocity_ft_min < 100) warnings.push("Velocidad anular baja (< 100 ft/min). Puede ser insuficiente para acarreo de recortes.");
-    if (velocity_ft_min > 500) warnings.push("Velocidad anular alta. Posible erosión y pérdidas de presión significativas.");
+    if (velocity_ft_min < 100) warnings.push("VA < 100 ft/min: puede ser insuficiente para acarreo de recortes.");
+    if (velocity_ft_min > 500) warnings.push("VA > 500 ft/min: posible erosión y pérdidas de presión significativas.");
 
     return {
       value: Math.round(velocity_ft_min * 100) / 100,
       unit: "ft/min",
       inputs,
       steps: [
-        `Diferencia de diámetros²: ${d_mayor}² - ${d_menor}² = ${(d_mayor*d_mayor).toFixed(4)} - ${(d_menor*d_menor).toFixed(4)} = ${diff.toFixed(4)} in²`,
-        `Capacidad anular: C = ${diff.toFixed(4)} ÷ 1029.4 = ${annular_capacity.toFixed(6)} bbl/ft`,
-        `Velocidad anular: VA = ${flow_bpm} ÷ ${annular_capacity.toFixed(6)} = ${velocity_ft_min.toFixed(4)} ft/min`,
+        `Diferencia cuadrados: ${d_mayor}² - ${d_menor}² = ${(d_mayor * d_mayor).toFixed(6)} - ${(d_menor * d_menor).toFixed(6)} = ${diff.toFixed(6)} in²`,
+        `Capacidad anular: C = ${diff.toFixed(6)} ÷ 1029.4 = ${annular_capacity.toFixed(8)} bbl/ft`,
+        `VA = ${flow_bpm} ÷ ${annular_capacity.toFixed(8)} = ${velocity_ft_min.toFixed(4)} ft/min`,
       ],
       warnings,
       errors: [],
@@ -265,147 +323,442 @@ const annularVelocity: Formula = {
   },
 };
 
-// ──────────────────────────────────────────────────────────────────────────────
-// COILED TUBING REEL CAPACITY
-// ──────────────────────────────────────────────────────────────────────────────
-const coiledTubing: Formula = {
-  id: "coiled-tubing",
-  name: "Capacidad de Carrete CT",
+// ─────────────────────────────────────────────────────────────────────────────
+// 5. DESPLAZAMIENTO DE TF (TUBERÍA FLEXIBLE / COILED TUBING)
+// Source: CALCULO VOLUMEN TF.xls · Hoja VOLUMENES · Fórmula G28
+// ─────────────────────────────────────────────────────────────────────────────
+const tfDisplacement: Formula = {
+  id: "tf-displacement",
+  name: "Desplazamiento de TF",
   category: "Coiled Tubing",
-  description: "Estimación de la longitud y volumen de coiled tubing en el carrete. Validar contra archivo fuente.",
-  icon: "reload-circle",
+  description: "Volumen interno de la TF (tubería flexible). Equivale al volumen de fluido que llena el interior del CT.",
+  icon: "pipe",
   inputs: [
-    { key: "d_carrete", label: "Diámetro exterior del carrete", unit: "ft", type: "number", required: true, min: 0.001, placeholder: "Ej: 8.0" },
-    { key: "d_nucleo", label: "Diámetro del núcleo (core)", unit: "ft", type: "number", required: true, min: 0.001, placeholder: "Ej: 4.0" },
-    { key: "ancho", label: "Ancho del carrete", unit: "ft", type: "number", required: true, min: 0.001, placeholder: "Ej: 2.5" },
-    { key: "od_ct", label: "Diámetro exterior del CT (OD)", unit: "in", type: "number", required: true, min: 0.001, placeholder: "Ej: 1.75" },
-    { key: "id_ct", label: "Diámetro interior del CT (ID)", unit: "in", type: "number", required: true, min: 0.001, placeholder: "Ej: 1.5" },
-    { key: "packing_factor", label: "Factor de acomodo (0.7–0.9)", unit: "", type: "number", required: true, min: 0.5, max: 1.0, placeholder: "Ej: 0.8" },
+    { key: "od_tf_in", label: "OD de TF", unit: "in", type: "number", required: true, min: 0.001, placeholder: "Ej: 1.5" },
+    { key: "length_m", label: "Longitud", unit: "m", type: "number", required: true, min: 0.001, placeholder: "Ej: 1800" },
   ],
-  output: { label: "Longitud estimada CT", unit: "ft" },
-  formulaText: "L = (π/4) × (D_carrete² - D_nucleo²) × Ancho × PF / (π/4 × OD_CT²)",
-  references: ["CoilTubingReelCapacitycalculator.xls"],
-  needsReview: true,
+  output: { label: "Desplazamiento de TF", unit: "bbl" },
+  formulaText: "V(bbl) = (OD_TF² / 1029.4) × (L(m) / 0.3048)",
+  references: ["CALCULO VOLUMEN TF.xls — Hoja VOLUMENES, fórmula G28"],
+  needsReview: false,
+  testCases: [
+    {
+      description: "OD=1.5in, L=1800m",
+      inputs: { od_tf_in: 1.5, length_m: 1800 },
+      expectedValue: (1.5 * 1.5 / 1029.4) * (1800 / 0.3048),
+      tolerance: 0.001,
+    },
+  ],
   calculate(inputs) {
-    const d_carrete = Number(inputs["d_carrete"]);
-    const d_nucleo = Number(inputs["d_nucleo"]);
-    const ancho = Number(inputs["ancho"]);
-    const od_ct_in = Number(inputs["od_ct"]);
-    const id_ct_in = Number(inputs["id_ct"]);
-    const pf = Number(inputs["packing_factor"]);
+    const od = Number(inputs["od_tf_in"]);
+    const length_m = Number(inputs["length_m"]);
     const errors: string[] = [];
-    const warnings: string[] = ["Resultado estimado. Validar contra CoilTubingReelCapacitycalculator.xls."];
+    const warnings: string[] = [];
 
-    if (isNaN(d_carrete) || d_carrete <= 0) errors.push("Diámetro del carrete debe ser > 0.");
-    if (isNaN(d_nucleo) || d_nucleo <= 0) errors.push("Diámetro del núcleo debe ser > 0.");
-    if (!isNaN(d_carrete) && !isNaN(d_nucleo) && d_carrete <= d_nucleo) errors.push("Diámetro del carrete debe ser mayor que el núcleo.");
-    if (isNaN(ancho) || ancho <= 0) errors.push("Ancho debe ser > 0.");
-    if (isNaN(od_ct_in) || od_ct_in <= 0) errors.push("OD del CT debe ser > 0.");
-    if (isNaN(id_ct_in) || id_ct_in <= 0) errors.push("ID del CT debe ser > 0.");
-    if (!isNaN(od_ct_in) && !isNaN(id_ct_in) && od_ct_in <= id_ct_in) errors.push("OD debe ser mayor que ID del CT.");
-    if (isNaN(pf) || pf < 0.5 || pf > 1.0) errors.push("Factor de acomodo debe estar entre 0.5 y 1.0.");
-    if (errors.length > 0) return { value: 0, unit: "ft", inputs, steps: [], warnings, errors };
+    if (isNaN(od) || od <= 0) errors.push("OD de TF debe ser mayor que cero.");
+    if (isNaN(length_m) || length_m <= 0) errors.push("Longitud debe ser mayor que cero.");
+    if (errors.length > 0) return { value: 0, unit: "bbl", inputs, steps: [], warnings, errors };
 
-    const od_ct_ft = od_ct_in / 12;
-    const id_ct_ft = id_ct_in / 12;
-    const area_anular_carrete = Math.PI / 4 * (d_carrete * d_carrete - d_nucleo * d_nucleo);
-    const area_transversal_ct = Math.PI / 4 * (od_ct_ft * od_ct_ft);
-    const longitud_ft = (area_anular_carrete * ancho * pf) / area_transversal_ct;
-    const vol_interno_bbl = Math.PI / 4 * (id_ct_ft * id_ct_ft) * longitud_ft / 5.61458;
+    const length_ft = length_m / 0.3048;
+    const capacity = (od * od) / 1029.4;
+    const vol_bbl = capacity * length_ft;
+    const vol_liters = vol_bbl * 158.987;
+    const vol_m3 = vol_bbl * 0.158987;
+
+    warnings.push("Esta fórmula usa el OD como si fuera el DI. Si el CT tiene pared gruesa, usar Desplazamiento Metálico de TF para volumen anular.");
 
     return {
-      value: Math.round(longitud_ft),
-      unit: "ft",
+      value: Math.round(vol_bbl * 10000) / 10000,
+      unit: "bbl",
       inputs,
       steps: [
-        `OD CT en ft: ${od_ct_in} in ÷ 12 = ${od_ct_ft.toFixed(4)} ft`,
-        `Área anular carrete: π/4 × (${d_carrete}² - ${d_nucleo}²) = ${area_anular_carrete.toFixed(4)} ft²`,
-        `Área transversal CT: π/4 × ${od_ct_ft.toFixed(4)}² = ${area_transversal_ct.toFixed(6)} ft²`,
-        `Longitud: (${area_anular_carrete.toFixed(4)} × ${ancho} × ${pf}) ÷ ${area_transversal_ct.toFixed(6)} = ${longitud_ft.toFixed(0)} ft`,
+        `Longitud: ${length_m} m ÷ 0.3048 = ${length_ft.toFixed(4)} ft`,
+        `Capacidad: OD² ÷ 1029.4 = ${od}² ÷ 1029.4 = ${capacity.toFixed(8)} bbl/ft`,
+        `Vol desplazamiento: ${capacity.toFixed(8)} × ${length_ft.toFixed(4)} = ${vol_bbl.toFixed(4)} bbl`,
+        `(Ref: CALCULO VOLUMEN TF.xls, hoja VOLUMENES, fórmula G28)`,
       ],
       warnings,
       errors: [],
       additionalResults: [
-        { label: "Longitud", value: Math.round(longitud_ft * 0.3048), unit: "m" },
-        { label: "Volumen interno CT", value: Math.round(vol_interno_bbl * 100) / 100, unit: "bbl" },
+        { label: "Desplazamiento", value: Math.round(vol_liters * 100) / 100, unit: "litros" },
+        { label: "Desplazamiento", value: Math.round(vol_m3 * 10000) / 10000, unit: "m³" },
+        { label: "Longitud", value: Math.round(length_ft * 100) / 100, unit: "ft" },
       ],
     };
   },
 };
 
-// ──────────────────────────────────────────────────────────────────────────────
-// HYDRAULICS (PLACEHOLDER)
-// ──────────────────────────────────────────────────────────────────────────────
+// ─────────────────────────────────────────────────────────────────────────────
+// 6. DESPLAZAMIENTO METÁLICO DE TF
+// Source: CALCULO VOLUMEN TF.xls · Hoja VOLUMENES · Fórmula G37
+// ─────────────────────────────────────────────────────────────────────────────
+const tfMetalDisplacement: Formula = {
+  id: "tf-metal-displacement",
+  name: "Desplazamiento Metálico de TF",
+  category: "Coiled Tubing",
+  description: "Volumen de metal de la TF — diferencia entre volumen externo e interno. Usado para calcular el efecto de pistón y la flotabilidad.",
+  icon: "circle",
+  inputs: [
+    { key: "od_tf_in", label: "OD de TF", unit: "in", type: "number", required: true, min: 0.001, placeholder: "Ej: 1.5" },
+    { key: "id_tf_in", label: "ID de TF", unit: "in", type: "number", required: true, min: 0.001, placeholder: "Ej: 1.321" },
+    { key: "length_m", label: "Longitud", unit: "m", type: "number", required: true, min: 0.001, placeholder: "Ej: 1800" },
+  ],
+  output: { label: "Desplazamiento Metálico", unit: "bbl" },
+  formulaText: "V(bbl) = ((OD_TF² - ID_TF²) / 1029.4) × (L(m) / 0.3048)",
+  references: ["CALCULO VOLUMEN TF.xls — Hoja VOLUMENES, fórmula G37"],
+  needsReview: false,
+  testCases: [
+    {
+      description: "OD=1.5in, ID=1.321in, L=1800m",
+      inputs: { od_tf_in: 1.5, id_tf_in: 1.321, length_m: 1800 },
+      expectedValue: ((1.5 * 1.5 - 1.321 * 1.321) / 1029.4) * (1800 / 0.3048),
+      tolerance: 0.001,
+    },
+  ],
+  calculate(inputs) {
+    const od = Number(inputs["od_tf_in"]);
+    const id = Number(inputs["id_tf_in"]);
+    const length_m = Number(inputs["length_m"]);
+    const errors: string[] = [];
+    const warnings: string[] = [];
+
+    if (isNaN(od) || od <= 0) errors.push("OD de TF debe ser mayor que cero.");
+    if (isNaN(id) || id <= 0) errors.push("ID de TF debe ser mayor que cero.");
+    if (!isNaN(od) && !isNaN(id) && od <= id) errors.push("OD debe ser estrictamente mayor que ID.");
+    if (isNaN(length_m) || length_m <= 0) errors.push("Longitud debe ser mayor que cero.");
+    if (errors.length > 0) return { value: 0, unit: "bbl", inputs, steps: [], warnings, errors };
+
+    const length_ft = length_m / 0.3048;
+    const diff = od * od - id * id;
+    const capacity = diff / 1029.4;
+    const vol_bbl = capacity * length_ft;
+    const vol_liters = vol_bbl * 158.987;
+    const vol_m3 = vol_bbl * 0.158987;
+
+    return {
+      value: Math.round(vol_bbl * 10000) / 10000,
+      unit: "bbl",
+      inputs,
+      steps: [
+        `Longitud: ${length_m} m ÷ 0.3048 = ${length_ft.toFixed(4)} ft`,
+        `Área metálica: OD² - ID² = ${od}² - ${id}² = ${(od * od).toFixed(6)} - ${(id * id).toFixed(6)} = ${diff.toFixed(6)} in²`,
+        `Capacidad metálica: ${diff.toFixed(6)} ÷ 1029.4 = ${capacity.toFixed(8)} bbl/ft`,
+        `Vol metálico: ${capacity.toFixed(8)} × ${length_ft.toFixed(4)} = ${vol_bbl.toFixed(4)} bbl`,
+        `(Ref: CALCULO VOLUMEN TF.xls, hoja VOLUMENES, fórmula G37)`,
+      ],
+      warnings,
+      errors: [],
+      additionalResults: [
+        { label: "Desplazamiento metálico", value: Math.round(vol_liters * 100) / 100, unit: "litros" },
+        { label: "Desplazamiento metálico", value: Math.round(vol_m3 * 10000) / 10000, unit: "m³" },
+      ],
+    };
+  },
+};
+
+// ─────────────────────────────────────────────────────────────────────────────
+// 7. CAPACIDAD DE CARRETE CT
+// Source: CoilTubingReelCapacitycalculator.xls
+// Formula: TRUNC((flangeH - freeBoard) / coilOd) × TRUNC((coreD + flangeH - freeBoard) / coilOd) × 0.2618 × coreW
+// ─────────────────────────────────────────────────────────────────────────────
+const coiledTubing: Formula = {
+  id: "coiled-tubing",
+  name: "Capacidad de Carrete CT",
+  category: "Coiled Tubing",
+  description: "Longitud estimada de CT en el carrete. Fórmula geométrica directa del Excel fuente.",
+  icon: "reload-circle",
+  inputs: [
+    { key: "flange_height_in", label: "Altura de flange", unit: "in", type: "number", required: true, min: 0.001, placeholder: "Ej: 36" },
+    { key: "free_board_in", label: "Free board", unit: "in", type: "number", required: true, min: 0, placeholder: "Ej: 2" },
+    { key: "core_diameter_in", label: "Diámetro del núcleo", unit: "in", type: "number", required: true, min: 0.001, placeholder: "Ej: 48" },
+    { key: "core_width_in", label: "Ancho del núcleo", unit: "in", type: "number", required: true, min: 0.001, placeholder: "Ej: 30" },
+    { key: "coil_od_in", label: "OD del coil (CT OD)", unit: "in", type: "number", required: true, min: 0.001, placeholder: "Ej: 1.75" },
+  ],
+  output: { label: "Longitud estimada CT", unit: "ft" },
+  formulaText:
+    "L(ft) = TRUNC((flangeH - freeBoard) / coilOD) × TRUNC((coreD + flangeH - freeBoard) / coilOD) × 0.2618 × coreW",
+  references: ["CoilTubingReelCapacitycalculator.xls"],
+  needsReview: true,
+  calculate(inputs) {
+    const flangeH = Number(inputs["flange_height_in"]);
+    const freeBoard = Number(inputs["free_board_in"]);
+    const coreD = Number(inputs["core_diameter_in"]);
+    const coreW = Number(inputs["core_width_in"]);
+    const coilOd = Number(inputs["coil_od_in"]);
+    const errors: string[] = [];
+    const warnings: string[] = [
+      "Resultado estimado. Validar contra CoilTubingReelCapacitycalculator.xls antes de uso operacional.",
+    ];
+
+    if (isNaN(flangeH) || flangeH <= 0) errors.push("Altura de flange debe ser > 0.");
+    if (isNaN(freeBoard) || freeBoard < 0) errors.push("Free board debe ser >= 0.");
+    if (!isNaN(flangeH) && !isNaN(freeBoard) && flangeH <= freeBoard) errors.push("Altura de flange debe ser mayor que free board.");
+    if (isNaN(coreD) || coreD <= 0) errors.push("Diámetro del núcleo debe ser > 0.");
+    if (isNaN(coreW) || coreW <= 0) errors.push("Ancho del núcleo debe ser > 0.");
+    if (isNaN(coilOd) || coilOd <= 0) errors.push("OD del coil debe ser > 0.");
+    if (errors.length > 0) return { value: 0, unit: "ft", inputs, steps: [], warnings, errors };
+
+    const verticalLayers = Math.trunc((flangeH - freeBoard) / coilOd);
+    const horizontalWraps = Math.trunc((coreD + flangeH - freeBoard) / coilOd);
+    const lengthFt = verticalLayers * horizontalWraps * 0.2618 * coreW;
+    const lengthM = lengthFt * 0.3048;
+
+    if (verticalLayers <= 0) { errors.push("Capas verticales resultan 0. Revisar flangeHeight vs freeboard vs coilOD."); return { value: 0, unit: "ft", inputs, steps: [], warnings, errors }; }
+    if (horizontalWraps <= 0) { errors.push("Vueltas horizontales resultan 0. Revisar coreDiameter vs coilOD."); return { value: 0, unit: "ft", inputs, steps: [], warnings, errors }; }
+
+    return {
+      value: Math.round(lengthFt),
+      unit: "ft",
+      inputs,
+      steps: [
+        `Capas verticales: TRUNC((${flangeH} - ${freeBoard}) / ${coilOd}) = TRUNC(${(flangeH - freeBoard) / coilOd}) = ${verticalLayers}`,
+        `Vueltas horizontales: TRUNC((${coreD} + ${flangeH} - ${freeBoard}) / ${coilOd}) = TRUNC(${(coreD + flangeH - freeBoard) / coilOd}) = ${horizontalWraps}`,
+        `Longitud: ${verticalLayers} × ${horizontalWraps} × 0.2618 × ${coreW} = ${lengthFt.toFixed(2)} ft`,
+        `(Ref: CoilTubingReelCapacitycalculator.xls — fórmula con TRUNC)`,
+      ],
+      warnings,
+      errors: [],
+      additionalResults: [
+        { label: "Longitud", value: Math.round(lengthM), unit: "m" },
+        { label: "Capas verticales", value: verticalLayers, unit: "capas" },
+        { label: "Vueltas horizontales", value: horizontalWraps, unit: "vueltas" },
+      ],
+    };
+  },
+};
+
+// ─────────────────────────────────────────────────────────────────────────────
+// 8. VELOCIDAD DE PENETRACIÓN EN RELLENO
+// Source: CALCULO VOLUMEN TF.xls · Hoja VELOCIDADES · Fórmula H30
+// ─────────────────────────────────────────────────────────────────────────────
+const fillPenetrationVelocity: Formula = {
+  id: "fill-penetration-velocity",
+  name: "Velocidad de Penetración en Relleno",
+  category: "Hidráulica",
+  description: "Velocidad de penetración del CT en el relleno. Relaciona el gasto de bombeo con la geometría del espacio anular y el factor de acarreo.",
+  icon: "speedometer",
+  inputs: [
+    { key: "d_mayor_in", label: "Diámetro del agujero/TR", unit: "in", type: "number", required: true, min: 0.001, placeholder: "Ej: 2.99" },
+    { key: "od_tf_in", label: "OD del CT/TF", unit: "in", type: "number", required: true, min: 0.001, placeholder: "Ej: 1.5" },
+    { key: "bpm", label: "Gasto de bombeo", unit: "BPM", type: "number", required: true, min: 0, placeholder: "Ej: 1.5" },
+    { key: "acarreo_percent", label: "Factor de acarreo", unit: "%", type: "number", required: true, min: 0.001, max: 100, placeholder: "Ej: 80" },
+  ],
+  output: { label: "Velocidad de Penetración", unit: "ft/min" },
+  formulaText: "V(ft/min) = (acarreo% × BPM) / (0.6 × 2.65 × 0.097 × (D_mayor² - OD_TF²))",
+  references: ["CALCULO VOLUMEN TF.xls — Hoja VELOCIDADES, fórmula H30"],
+  needsReview: false,
+  calculate(inputs) {
+    const d_mayor = Number(inputs["d_mayor_in"]);
+    const od_tf = Number(inputs["od_tf_in"]);
+    const bpm = Number(inputs["bpm"]);
+    const acarreo = Number(inputs["acarreo_percent"]);
+    const errors: string[] = [];
+    const warnings: string[] = [];
+
+    if (isNaN(d_mayor) || d_mayor <= 0) errors.push("Diámetro del agujero/TR debe ser > 0.");
+    if (isNaN(od_tf) || od_tf <= 0) errors.push("OD del CT/TF debe ser > 0.");
+    if (!isNaN(d_mayor) && !isNaN(od_tf) && d_mayor <= od_tf) errors.push("D_mayor debe ser estrictamente mayor que OD del CT.");
+    if (isNaN(bpm) || bpm < 0) errors.push("Gasto debe ser >= 0.");
+    if (isNaN(acarreo) || acarreo <= 0) errors.push("Factor de acarreo debe ser > 0.");
+    if (errors.length > 0) return { value: 0, unit: "ft/min", inputs, steps: [], warnings, errors };
+
+    // Constantes: 0.6 (coeficiente), 2.65 (densidad relleno gr/cc), 0.097 (factor unidades)
+    const COEFF = 0.6;
+    const DENSITY_FILL = 2.65;
+    const UNIT_FACTOR = 0.097;
+
+    const areaAnular = d_mayor * d_mayor - od_tf * od_tf;
+    const denominator = COEFF * DENSITY_FILL * UNIT_FACTOR * areaAnular;
+    if (denominator === 0) { errors.push("División entre cero: revisar dimensiones."); return { value: 0, unit: "ft/min", inputs, steps: [], warnings, errors }; }
+    const vel_ft_min = (acarreo * bpm) / denominator;
+    const vel_m_min = vel_ft_min * 0.3048;
+
+    warnings.push("Constantes: 0.6 (coeficiente Cd), 2.65 gr/cc (densidad relleno), 0.097 (factor de unidades). Validar contra CALCULO VOLUMEN TF.xls, hoja VELOCIDADES.");
+
+    return {
+      value: Math.round(vel_ft_min * 100) / 100,
+      unit: "ft/min",
+      inputs,
+      steps: [
+        `Área anular: ${d_mayor}² - ${od_tf}² = ${areaAnular.toFixed(6)} in²`,
+        `Denominador: 0.6 × 2.65 × 0.097 × ${areaAnular.toFixed(6)} = ${denominator.toFixed(8)}`,
+        `Velocidad: (${acarreo} × ${bpm}) ÷ ${denominator.toFixed(8)} = ${vel_ft_min.toFixed(4)} ft/min`,
+        `(Ref: CALCULO VOLUMEN TF.xls, hoja VELOCIDADES, fórmula H30)`,
+      ],
+      warnings,
+      errors: [],
+      additionalResults: [
+        { label: "Velocidad penetración", value: Math.round(vel_m_min * 1000) / 1000, unit: "m/min" },
+      ],
+    };
+  },
+};
+
+// ─────────────────────────────────────────────────────────────────────────────
+// 9. BACHE ECOLÓGICO
+// Source: Bache ecologico.xls
+// ─────────────────────────────────────────────────────────────────────────────
+const bachecologico: Formula = {
+  id: "bache-ecologico",
+  name: "Bache Ecológico",
+  category: "Bache Ecológico",
+  description: "Calcula presiones hidrostáticas y densidad requerida para diseño de bache ecológico en operaciones de CT/wireline.",
+  icon: "water",
+  inputs: [
+    { key: "de_tp_in", label: "DE de TP", unit: "in", type: "number", required: true, min: 0.001, placeholder: "Ej: 2.875" },
+    { key: "di_tp_in", label: "DI de TP", unit: "in", type: "number", required: true, min: 0.001, placeholder: "Ej: 2.441" },
+    { key: "densidad_lodo_grcc", label: "Densidad del lodo", unit: "gr/cc", type: "number", required: true, min: 0.001, placeholder: "Ej: 1.05" },
+    { key: "volumen_tapon_m3", label: "Volumen del tapón", unit: "m³", type: "number", required: true, min: 0.001, placeholder: "Ej: 0.5" },
+    { key: "longitud_desplazar_m", label: "Longitud a desplazar", unit: "m", type: "number", required: true, min: 0, placeholder: "Ej: 100" },
+    { key: "profundidad_m", label: "Profundidad TVD", unit: "m", type: "number", required: true, min: 0.001, placeholder: "Ej: 1500" },
+  ],
+  output: { label: "Densidad requerida (bache)", unit: "gr/cc" },
+  formulaText: [
+    "cap_tp = DI_TP² × 0.5067 / 1000  [m³/m]",
+    "L_tapón = Vol_tapón / cap_tp  [m]",
+    "P_hid_total = Prof × ρ_lodo / 10  [kg/cm²]",
+    "Col_equiv = Prof - L_tapón - L_desplazar  [m]",
+    "P_hid_parcial = Col_equiv × ρ_lodo / 10  [kg/cm²]",
+    "P_faltante = P_total - P_parcial  [kg/cm²]",
+    "ρ_req = P_faltante × 10 / L_tapón  [gr/cc]",
+  ].join(" | "),
+  references: ["Bache ecologico.xls"],
+  needsReview: false,
+  calculate(inputs) {
+    const de_tp = Number(inputs["de_tp_in"]);
+    const di_tp = Number(inputs["di_tp_in"]);
+    const densidad = Number(inputs["densidad_lodo_grcc"]);
+    const vol_tapon = Number(inputs["volumen_tapon_m3"]);
+    const longitud_desplazar = Number(inputs["longitud_desplazar_m"]);
+    const profundidad = Number(inputs["profundidad_m"]);
+    const errors: string[] = [];
+    const warnings: string[] = [];
+
+    if (isNaN(de_tp) || de_tp <= 0) errors.push("DE de TP debe ser > 0.");
+    if (isNaN(di_tp) || di_tp <= 0) errors.push("DI de TP debe ser > 0.");
+    if (!isNaN(de_tp) && !isNaN(di_tp) && de_tp <= di_tp) errors.push("DE de TP debe ser mayor que DI de TP.");
+    if (isNaN(densidad) || densidad <= 0) errors.push("Densidad del lodo debe ser > 0.");
+    if (isNaN(vol_tapon) || vol_tapon <= 0) errors.push("Volumen del tapón debe ser > 0.");
+    if (isNaN(longitud_desplazar) || longitud_desplazar < 0) errors.push("Longitud a desplazar debe ser >= 0.");
+    if (isNaN(profundidad) || profundidad <= 0) errors.push("Profundidad debe ser > 0.");
+    if (errors.length > 0) return { value: 0, unit: "gr/cc", inputs, steps: [], warnings, errors };
+
+    // Paso 1: Capacidad TP
+    const cap_tp_m3_m = (di_tp * di_tp * 0.5067) / 1000;
+
+    // Paso 2: Longitud del tapón
+    const longitud_tapon_m = vol_tapon / cap_tp_m3_m;
+
+    // Validación: profundidad > longitud_tapón + longitud_desplazar
+    if (profundidad <= longitud_tapon_m + longitud_desplazar) {
+      errors.push(`Profundidad (${profundidad} m) debe ser mayor que longitud tapón + longitud desplazar (${(longitud_tapon_m + longitud_desplazar).toFixed(2)} m).`);
+      return { value: 0, unit: "gr/cc", inputs, steps: [], warnings, errors };
+    }
+
+    // Paso 3: Presión hidrostática total
+    const p_hid_total = (profundidad * densidad) / 10;
+
+    // Paso 4: Columna equivalente
+    const col_equiv_m = profundidad - longitud_tapon_m - longitud_desplazar;
+
+    // Paso 5: Presión hidrostática parcial
+    const p_hid_parcial = (col_equiv_m * densidad) / 10;
+
+    // Paso 6: Presión faltante
+    const p_faltante = p_hid_total - p_hid_parcial;
+
+    // Paso 7: Densidad requerida
+    const densidad_req = (p_faltante * 10) / longitud_tapon_m;
+
+    if (densidad_req < densidad) warnings.push("Densidad requerida menor que densidad del lodo actual — verificar diseño del bache.");
+    if (densidad_req > 2.5) warnings.push("Densidad requerida muy alta (>2.5 gr/cc). Verificar datos de entrada.");
+
+    return {
+      value: Math.round(densidad_req * 10000) / 10000,
+      unit: "gr/cc",
+      inputs,
+      steps: [
+        `1. Cap. TP: DI² × 0.5067 / 1000 = ${di_tp}² × 0.5067 / 1000 = ${cap_tp_m3_m.toFixed(6)} m³/m`,
+        `2. Longitud tapón: ${vol_tapon} / ${cap_tp_m3_m.toFixed(6)} = ${longitud_tapon_m.toFixed(4)} m`,
+        `3. P.hid. total: ${profundidad} × ${densidad} / 10 = ${p_hid_total.toFixed(4)} kg/cm²`,
+        `4. Columna equivalente: ${profundidad} - ${longitud_tapon_m.toFixed(4)} - ${longitud_desplazar} = ${col_equiv_m.toFixed(4)} m`,
+        `5. P.hid. parcial: ${col_equiv_m.toFixed(4)} × ${densidad} / 10 = ${p_hid_parcial.toFixed(4)} kg/cm²`,
+        `6. P. faltante: ${p_hid_total.toFixed(4)} - ${p_hid_parcial.toFixed(4)} = ${p_faltante.toFixed(4)} kg/cm²`,
+        `7. Densidad requerida: ${p_faltante.toFixed(4)} × 10 / ${longitud_tapon_m.toFixed(4)} = ${densidad_req.toFixed(4)} gr/cc`,
+      ],
+      warnings,
+      errors: [],
+      additionalResults: [
+        { label: "Cap. TP", value: Math.round(cap_tp_m3_m * 1000000) / 1000000, unit: "m³/m" },
+        { label: "Longitud tapón", value: Math.round(longitud_tapon_m * 100) / 100, unit: "m" },
+        { label: "P. hid. total", value: Math.round(p_hid_total * 10000) / 10000, unit: "kg/cm²" },
+        { label: "P. hid. parcial", value: Math.round(p_hid_parcial * 10000) / 10000, unit: "kg/cm²" },
+        { label: "P. faltante", value: Math.round(p_faltante * 10000) / 10000, unit: "kg/cm²" },
+      ],
+    };
+  },
+};
+
+// ─────────────────────────────────────────────────────────────────────────────
+// 10. HIDRÁULICA DE PERFORACIÓN
+// Source: HIDRAULICA_RIVERO.xls · Hydraulics_IPM.xls
+// STATUS: BLOQUEADA — needsReview=true. No muestra resultado como válido.
+// ─────────────────────────────────────────────────────────────────────────────
 const hydraulics: Formula = {
   id: "hydraulics",
   name: "Hidráulica de Perforación",
   category: "Hidráulica",
-  description: "Análisis hidráulico de sistema de perforación. Fórmulas pendientes de validar con archivos fuente.",
+  description:
+    "Módulo de hidráulica en desarrollo. Los submódulos (caída de presión interna, anular, en barrena, ECD, nozzles, Bingham, Power Law, Herschel-Bulkley) están pendientes de extracción y validación de los archivos Excel fuente.",
   icon: "water",
   inputs: [
-    { key: "flow_rate", label: "Gasto (Flow Rate)", unit: "GPM", type: "number", required: true, min: 0, placeholder: "Ej: 400" },
-    { key: "mud_weight", label: "Peso del lodo", unit: "ppg", type: "number", required: true, min: 1, placeholder: "Ej: 10.5" },
-    { key: "plastic_visc", label: "Viscosidad Plástica (PV)", unit: "cP", type: "number", required: true, min: 0, placeholder: "Ej: 20" },
-    { key: "yield_point", label: "Punto de Cedencia (YP)", unit: "lb/100ft²", type: "number", required: true, min: 0, placeholder: "Ej: 15" },
-    { key: "dp_id", label: "ID Drill Pipe", unit: "in", type: "number", required: true, min: 0.001, placeholder: "Ej: 4.276" },
-    { key: "hole_size", label: "Diámetro de agujero", unit: "in", type: "number", required: true, min: 0.001, placeholder: "Ej: 8.5" },
-    { key: "depth_md", label: "Profundidad MD", unit: "ft", type: "number", required: true, min: 0, placeholder: "Ej: 8000" },
+    { key: "flow_gpm", label: "Gasto (Flow Rate)", unit: "GPM", type: "number", required: true, min: 0, placeholder: "Ej: 400" },
+    { key: "mud_ppg", label: "Peso del lodo", unit: "ppg", type: "number", required: true, min: 1, placeholder: "Ej: 10.5" },
+    { key: "pv_cp", label: "Viscosidad Plástica (PV)", unit: "cP", type: "number", required: true, min: 0, placeholder: "Ej: 20" },
+    { key: "yp_lbft2", label: "Punto de Cedencia (YP)", unit: "lb/100ft²", type: "number", required: true, min: 0, placeholder: "Ej: 15" },
+    { key: "dp_id_in", label: "ID Drill Pipe", unit: "in", type: "number", required: true, min: 0.001, placeholder: "Ej: 4.276" },
+    { key: "hole_in", label: "Diámetro de agujero", unit: "in", type: "number", required: true, min: 0.001, placeholder: "Ej: 8.5" },
+    { key: "depth_ft", label: "Profundidad MD", unit: "ft", type: "number", required: true, min: 0, placeholder: "Ej: 8000" },
   ],
-  output: { label: "Presión de circulación ECD", unit: "ppg" },
-  formulaText: "Fórmula pendiente de validar con archivo fuente",
+  output: { label: "ECD estimado", unit: "ppg" },
+  formulaText: "PENDIENTE — Validar con HIDRAULICA_RIVERO.xls y Hydraulics_IPM.xls",
   references: ["HIDRAULICA_RIVERO.xls", "Hydraulics_IPM.xls"],
-  needsReview: true,
+  needsReview: true, // BLOCKED — do not display result as valid
   calculate(inputs) {
-    const flow_gpm = Number(inputs["flow_rate"]);
-    const mud_ppg = Number(inputs["mud_weight"]);
-    const pv = Number(inputs["plastic_visc"]);
-    const yp = Number(inputs["yield_point"]);
-    const dp_id = Number(inputs["dp_id"]);
-    const hole = Number(inputs["hole_size"]);
-    const depth = Number(inputs["depth_md"]);
-    const errors: string[] = [];
-
-    if ([flow_gpm, mud_ppg, pv, yp, dp_id, hole, depth].some((v) => isNaN(v) || v < 0))
-      errors.push("Todos los valores deben ser números válidos y no negativos.");
-    if (dp_id >= hole) errors.push("ID drill pipe debe ser menor que diámetro de agujero.");
-
     const warnings = [
-      "Fórmulas de hidráulica pendientes de validar contra HIDRAULICA_RIVERO.xls y Hydraulics_IPM.xls.",
-      "Los resultados mostrados son estimaciones simplificadas. NO usar para decisiones operacionales sin validación.",
+      "⛔ FÓRMULAS PENDIENTES DE VALIDAR — No usar para decisiones operacionales.",
+      "Pendiente: extraer y validar fórmulas de HIDRAULICA_RIVERO.xls y Hydraulics_IPM.xls.",
+      "Submódulos pendientes: ΔP sarta interna, ΔP anular, ΔP barrena, ECD, nozzles, Bingham Plastic, Power Law, Herschel-Bulkley.",
     ];
-
-    if (errors.length > 0) return { value: 0, unit: "ppg", inputs, steps: [], warnings, errors };
-
-    // Simplified Bingham Plastic model — needs validation against source Excel
-    const vel_annular = (flow_gpm * 0.408) / (hole * hole - dp_id * dp_id);
-    const annular_pres_loss = (mud_ppg * vel_annular * vel_annular) / (25.8 * (hole - dp_id));
-    const ecd_approx = mud_ppg + (annular_pres_loss * depth) / (0.052 * depth * 2);
-
+    // Return blocked result — calculationEngine will enforce blocked=true
     return {
-      value: Math.round(ecd_approx * 100) / 100,
+      value: 0,
       unit: "ppg",
       inputs,
       steps: [
-        `Velocidad anular: AV = ${flow_gpm} × 0.408 ÷ (${hole}² - ${dp_id}²) = ${vel_annular.toFixed(2)} ft/min`,
-        `[PENDIENTE] Pérdida de presión anular: modelo Bingham simplificado`,
-        `[PENDIENTE] ECD = Densidad lodo + ΔP anular ÷ (0.052 × TVD)`,
-        `NOTA: Validar fórmulas contra archivos Excel fuente antes de uso operacional.`,
+        "Fórmula pendiente de validar con archivo fuente.",
+        "No se muestran resultados para evitar uso operacional de datos no validados.",
       ],
       warnings,
       errors: [],
+      blocked: true,
     };
   },
 };
 
-// ──────────────────────────────────────────────────────────────────────────────
-// FORMULA REGISTRY
-// ──────────────────────────────────────────────────────────────────────────────
+// ─────────────────────────────────────────────────────────────────────────────
+// FORMULA REGISTRY — Add new formulas here. UI is auto-driven.
+// ─────────────────────────────────────────────────────────────────────────────
 const registry: Formula[] = [
   pipeVolume,
   annularVolume,
   fluidVelocity,
   annularVelocity,
+  tfDisplacement,
+  tfMetalDisplacement,
   coiledTubing,
+  fillPenetrationVelocity,
+  bachecologico,
   hydraulics,
 ];
 
