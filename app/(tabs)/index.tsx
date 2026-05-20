@@ -59,7 +59,7 @@ export default function HomeScreen() {
       <View style={styles.header}>
         <View>
           <Text style={[styles.greeting, { color: colors.mutedForeground }]}>Bienvenido</Text>
-          <Text style={[styles.appName, { color: colors.foreground }]}>OilCalc Pro</Text>
+          <Text style={[styles.appName, { color: colors.foreground }]}>ING Camacho</Text>
         </View>
         <View style={[styles.logo, { backgroundColor: colors.primary + "22" }]}>
           <MaterialCommunityIcons name="oil-temperature" size={28} color={colors.primary} />

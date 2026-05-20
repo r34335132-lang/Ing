@@ -58,7 +58,7 @@ export default function SettingsScreen() {
           <MaterialCommunityIcons name="oil-temperature" size={32} color={colors.primaryForeground} />
         </View>
         <View>
-          <Text style={[styles.appName, { color: colors.foreground }]}>OilCalc Pro</Text>
+          <Text style={[styles.appName, { color: colors.foreground }]}>ING Camacho</Text>
           <Text style={[styles.appVersion, { color: colors.mutedForeground }]}>v1.0.0 · Motor de cálculo técnico</Text>
         </View>
       </View>
@@ -132,7 +132,7 @@ export default function SettingsScreen() {
       </View>
 
       <Text style={[styles.footer, { color: colors.mutedForeground }]}>
-        OilCalc Pro · Motor de fórmulas técnicas para operaciones petroleras
+        Ing Camacho · Motor de fórmulas técnicas para operaciones petroleras
       </Text>
     </ScrollView>
   );
