@@ -25,19 +25,19 @@ export const excelValidationCases: ExcelValidationCase[] = [
     sourceSheet: "VOLUMENES",
     sourceCell: "G10",
     inputs: { di: 1.8, length_m: 1410 },
-    expectedValue: 14.567, // Expected exact value from Excel
-    tolerance: 0.001,
-    status: "manual_pending"
+    expectedValue: 14.5601214070118,
+    tolerance: 0.0001,
+    status: "validated"
   },
   {
     formulaId: "coiled-tubing",
     sourceFile: "CoilTubingReelCapacitycalculator.xls",
-    sourceSheet: "Sheet1",
-    sourceCell: "H15",
-    inputs: { flangeHeightIn: 50, freeBoardIn: 4, coreDiameterIn: 30, coreWidthIn: 60, coilOdIn: 1.5 },
-    expectedValue: null, 
-    tolerance: 0.001,
-    status: "manual_pending"
+    sourceSheet: "Coillength Program",
+    sourceCell: "G26",
+    inputs: { flangeHeightIn: 25, freeBoardIn: 1, coreDiameterIn: 96, coreWidthIn: 82, coilOdIn: 2.375 },
+    expectedValue: 10733.7748994583,
+    tolerance: 0.0001,
+    status: "validated"
   },
   {
     formulaId: "hydraulics",

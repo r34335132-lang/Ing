@@ -459,7 +459,6 @@ const tfMetalDisplacement: Formula = {
 // ─────────────────────────────────────────────────────────────────────────────
 // 7. CAPACIDAD DE CARRETE CT
 // Source: CoilTubingReelCapacitycalculator.xls
-// Formula: TRUNC((flangeH - freeBoard) / coilOd) × TRUNC((coreD + flangeH - freeBoard) / coilOd) × 0.2618 × coreW
 // ─────────────────────────────────────────────────────────────────────────────
 const coiledTubing: Formula = {
   id: "coiled-tubing",
@@ -468,17 +467,17 @@ const coiledTubing: Formula = {
   description: "Longitud estimada de CT en el carrete. Fórmula geométrica directa del Excel fuente.",
   icon: "reload-circle",
   inputs: [
-    { key: "flangeHeightIn", label: "Altura de flange", unit: "in", type: "number", required: true, min: 0.001, placeholder: "Ej: 36" },
-    { key: "freeBoardIn", label: "Free board", unit: "in", type: "number", required: true, min: 0, placeholder: "Ej: 2" },
-    { key: "coreDiameterIn", label: "Diámetro del núcleo", unit: "in", type: "number", required: true, min: 0.001, placeholder: "Ej: 48" },
-    { key: "coreWidthIn", label: "Ancho del núcleo", unit: "in", type: "number", required: true, min: 0.001, placeholder: "Ej: 30" },
-    { key: "coilOdIn", label: "OD del coil (CT OD)", unit: "in", type: "number", required: true, min: 0.001, placeholder: "Ej: 1.75" },
+    { key: "flangeHeightIn", label: "Altura de flange", unit: "in", type: "number", required: true, min: 0.001, placeholder: "Ej: 25" },
+    { key: "freeBoardIn", label: "Free board", unit: "in", type: "number", required: true, min: 0, placeholder: "Ej: 1" },
+    { key: "coreDiameterIn", label: "Diámetro del núcleo", unit: "in", type: "number", required: true, min: 0.001, placeholder: "Ej: 96" },
+    { key: "coreWidthIn", label: "Ancho del núcleo", unit: "in", type: "number", required: true, min: 0.001, placeholder: "Ej: 82" },
+    { key: "coilOdIn", label: "OD del coil (CT OD)", unit: "in", type: "number", required: true, min: 0.001, placeholder: "Ej: 2.375" },
   ],
   output: { label: "Longitud estimada CT", unit: "ft" },
   formulaText:
-    "L(ft) = TRUNC((flangeH - freeBoard) / coilOD) × TRUNC((coreD + flangeH - freeBoard) / coilOD) × 0.2618 × coreW",
+    "L(ft) = TRUNC((flangeH - freeBoard) / coilOD) × TRUNC((coreD + flangeH - freeBoard) / coilOD) × (π/12) × coreW",
   references: ["CoilTubingReelCapacitycalculator.xls"],
-  needsReview: true,
+  needsReview: false, // VALIDADA: Desbloqueada para operación real
   calculate(inputs) {
     const flangeH = Number(inputs["flangeHeightIn"]);
     const freeBoard = Number(inputs["freeBoardIn"]);
@@ -493,31 +492,34 @@ const coiledTubing: Formula = {
     if (isNaN(coreD) || coreD <= 0) errors.push("Diámetro del núcleo debe ser > 0.");
     if (isNaN(coreW) || coreW <= 0) errors.push("Ancho del núcleo debe ser > 0.");
     if (isNaN(coilOd) || coilOd <= 0) errors.push("OD del coil debe ser > 0.");
+    
     if (errors.length > 0) return { value: 0, unit: "ft", inputs, steps: [], warnings: [], errors };
 
     const verticalLayers = Math.trunc((flangeH - freeBoard) / coilOd);
     const horizontalWraps = Math.trunc((coreD + flangeH - freeBoard) / coilOd);
-    const lengthFt = verticalLayers * horizontalWraps * 0.2618 * coreW;
+    
+    if (verticalLayers <= 0) { errors.push("Capas verticales resultan 0. Revisar inputs."); return { value: 0, unit: "ft", inputs, steps: [], warnings: [], errors }; }
+    if (horizontalWraps <= 0) { errors.push("Vueltas horizontales resultan 0. Revisar inputs."); return { value: 0, unit: "ft", inputs, steps: [], warnings: [], errors }; }
+
+    // Constante exacta del Excel: 3.1415926535 / 12
+    const COIL_LENGTH_FACTOR = 3.1415926535 / 12;
+    const lengthFt = verticalLayers * horizontalWraps * COIL_LENGTH_FACTOR * coreW;
     const lengthM = lengthFt * 0.3048;
 
-    if (verticalLayers <= 0) { errors.push("Capas verticales resultan 0. Revisar flangeHeight vs freeboard vs coilOD."); return { value: 0, unit: "ft", inputs, steps: [], warnings: [], errors }; }
-    if (horizontalWraps <= 0) { errors.push("Vueltas horizontales resultan 0. Revisar coreDiameter vs coilOD."); return { value: 0, unit: "ft", inputs, steps: [], warnings: [], errors }; }
-
     return {
-      value: Math.round(lengthFt),
+      value: lengthFt,
       unit: "ft",
       inputs,
-      blocked: true,
       steps: [
-        `Capas verticales: TRUNC((${flangeH} - ${freeBoard}) / ${coilOd}) = TRUNC(${(flangeH - freeBoard) / coilOd}) = ${verticalLayers}`,
-        `Vueltas horizontales: TRUNC((${coreD} + ${flangeH} - ${freeBoard}) / ${coilOd}) = TRUNC(${(coreD + flangeH - freeBoard) / coilOd}) = ${horizontalWraps}`,
-        `Longitud: ${verticalLayers} × ${horizontalWraps} × 0.2618 × ${coreW} = ${lengthFt.toFixed(2)} ft`,
-        `(Ref: CoilTubingReelCapacitycalculator.xls — fórmula con TRUNC)`,
+        `Capas verticales (F16): TRUNC((${flangeH} - ${freeBoard}) / ${coilOd}) = ${verticalLayers}`,
+        `Vueltas horizontales (F17): TRUNC((${coreD} + ${flangeH} - ${freeBoard}) / ${coilOd}) = ${horizontalWraps}`,
+        `Constante factor: 3.1415926535 / 12 = ${COIL_LENGTH_FACTOR.toFixed(6)}`,
+        `Longitud (G26): ${verticalLayers} × ${horizontalWraps} × ${COIL_LENGTH_FACTOR.toFixed(6)} × ${coreW} = ${lengthFt.toFixed(4)} ft`,
       ],
-      warnings: ["Fórmula pendiente de validar con archivo fuente. No usar para operación."],
+      warnings: [],
       errors: [],
       additionalResults: [
-        { label: "Longitud", value: Math.round(lengthM), unit: "m" },
+        { label: "Longitud", value: lengthM, unit: "m" },
         { label: "Capas verticales", value: verticalLayers, unit: "capas" },
         { label: "Vueltas horizontales", value: horizontalWraps, unit: "vueltas" },
       ],

@@ -47,9 +47,16 @@ function runAllTests(): void {
     // ── Tests de Cálculo Exitoso ───────────────────────────────────────────
     {
       formulaId: "pipe-volume",
-      description: "DI=1.8in, L=1410m → V = (1.8²/1029.4) × (1410/0.3048)",
+      description: "DI=1.8in, L=1410m (Valor real de CALCULO VOLUMEN TF.xls)",
       inputs: { di: 1.8, length_m: 1410 },
-      expectedValue: (1.8 * 1.8 / 1029.4) * (1410 / 0.3048),
+      expectedValue: 14.5601214070118,
+      tolerance: 0.0001
+    },
+    {
+      formulaId: "pipe-volume",
+      description: "DI=4.276in, L=1000m",
+      inputs: { di: 4.276, length_m: 1000 },
+      expectedValue: (4.276 * 4.276 / 1029.4) * (1000 / 0.3048),
     },
     {
       formulaId: "annular-volume",
@@ -86,7 +93,6 @@ function runAllTests(): void {
       description: "Velocidad de penetración en relleno (con Additional Results)",
       inputs: { d_mayor_in: 2.99, od_tf_in: 1.5, bpm: 1.5, acarreo_percent: 10 },
       expectedValue: (10 * 1.5) / (0.6 * 2.65 * 0.097 * (Math.pow(2.99, 2) - Math.pow(1.5, 2))),
-      // Dependiendo de cómo lo hayas nombrado en tu registry, asumiendo label: "m/min"
       expectedAdditionalResults: {
         "m/min": ((10 * 1.5) / (0.6 * 2.65 * 0.097 * (Math.pow(2.99, 2) - Math.pow(1.5, 2)))) * 0.3048
       }
@@ -105,15 +111,20 @@ function runAllTests(): void {
         "P. faltante": (1500 * 1.25 / 10) - ((1500 - (3 / (Math.pow(2.441, 2) * 0.5067 / 1000)) - 100) * 1.25 / 10)
       }
     },
-
-    // ── Tests de Bloqueo por Revisión (OPCIÓN A) ───────────────────────────
     {
       formulaId: "coiled-tubing",
-      description: "BLOCKED: Coiled Tubing pendiente de validación vs Excel",
-      inputs: { flangeHeightIn: 50, freeBoardIn: 4, coreDiameterIn: 30, coreWidthIn: 60, coilOdIn: 1.5 },
-      expectedValue: 0,
-      expectBlocked: true
+      description: "Validación real vs CoilTubingReelCapacitycalculator.xls",
+      inputs: { flangeHeightIn: 25, freeBoardIn: 1, coreDiameterIn: 96, coreWidthIn: 82, coilOdIn: 2.375 },
+      expectedValue: 10733.7748994583,
+      tolerance: 0.0001,
+      expectedAdditionalResults: {
+        "Longitud": 3271.25419175449,
+        "Capas verticales": 10,
+        "Vueltas horizontales": 50
+      }
     },
+
+    // ── Tests de Bloqueo por Revisión (Seguridad) ──────────────────────────
     {
       formulaId: "hydraulics",
       description: "BLOCKED: Hydraulics pendiente de validación vs Excel",
@@ -132,8 +143,8 @@ function runAllTests(): void {
     },
     {
       formulaId: "coiled-tubing",
-      description: "ERROR: coilOdIn <= 0 (Input inválido antes de bloqueo)",
-      inputs: { flangeHeightIn: 50, freeBoardIn: 4, coreDiameterIn: 30, coreWidthIn: 60, coilOdIn: 0 },
+      description: "ERROR: coilOdIn <= 0 (Input inválido)",
+      inputs: { flangeHeightIn: 25, freeBoardIn: 1, coreDiameterIn: 96, coreWidthIn: 82, coilOdIn: 0 },
       expectedValue: 0,
       expectError: true
     },
