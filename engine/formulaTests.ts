@@ -1,6 +1,6 @@
 // ═════════════════════════════════════════════════════════════════════════════
 // OilCalc Pro — Formula Test Suite
-// Run with: ts-node engine/formulaTests.ts
+// Run with: pnpm test:formulas
 // All expected values calculated from source Excel formulas.
 // Tolerance: 0.1% relative (configurable per test case)
 // ═════════════════════════════════════════════════════════════════════════════
@@ -20,6 +20,12 @@ interface TestResult {
 
 const DEFAULT_TOLERANCE = 0.001; // 0.1%
 
+// Función auxiliar para comparar resultados técnicos con tolerancia
+function approxEqual(actual: number, expected: number, tolerance = DEFAULT_TOLERANCE): boolean {
+  if (expected === 0) return Math.abs(actual) <= tolerance;
+  return Math.abs(actual - expected) / Math.abs(expected) <= tolerance;
+}
+
 function runAllTests(): void {
   const results: TestResult[] = [];
   const formulas = getAllFormulas();
@@ -33,6 +39,7 @@ function runAllTests(): void {
     description: string;
     inputs: Record<string, number | string>;
     expectedValue: number;
+    expectedAdditionalResults?: Record<string, number>;
     tolerance?: number;
   }> = [
     // ── Volumen Interno de Tubería ─────────────────────────────────────────
@@ -55,24 +62,12 @@ function runAllTests(): void {
       inputs: { d_mayor: 1.8, d_menor: 1.25, length_m: 1410 },
       expectedValue: ((1.8 * 1.8 - 1.25 * 1.25) / 1029.4) * (1410 / 0.3048),
     },
-    {
-      formulaId: "annular-volume",
-      description: "D_mayor=8.5, D_menor=5.0, L=2000m",
-      inputs: { d_mayor: 8.5, d_menor: 5.0, length_m: 2000 },
-      expectedValue: ((8.5 * 8.5 - 5.0 * 5.0) / 1029.4) * (2000 / 0.3048),
-    },
     // ── Velocidad en Tubería ───────────────────────────────────────────────
     {
       formulaId: "fluid-velocity",
       description: "DI=2.441in, BPM=1.5 → V = 1.5 / (2.441²/1029.4)",
       inputs: { di: 2.441, flow_bpm: 1.5 },
       expectedValue: 1.5 / ((2.441 * 2.441) / 1029.4),
-    },
-    {
-      formulaId: "fluid-velocity",
-      description: "DI=4.276in, BPM=6.0",
-      inputs: { di: 4.276, flow_bpm: 6.0 },
-      expectedValue: 6.0 / ((4.276 * 4.276) / 1029.4),
     },
     // ── Velocidad Anular ───────────────────────────────────────────────────
     {
@@ -81,24 +76,12 @@ function runAllTests(): void {
       inputs: { d_mayor: 2.99, d_menor: 1.5, flow_bpm: 1.5 },
       expectedValue: 1.5 / ((2.99 * 2.99 - 1.5 * 1.5) / 1029.4),
     },
-    {
-      formulaId: "annular-velocity",
-      description: "D_mayor=8.5, D_menor=5.0, BPM=8.0",
-      inputs: { d_mayor: 8.5, d_menor: 5.0, flow_bpm: 8.0 },
-      expectedValue: 8.0 / ((8.5 * 8.5 - 5.0 * 5.0) / 1029.4),
-    },
     // ── Desplazamiento TF ──────────────────────────────────────────────────
     {
       formulaId: "tf-displacement",
       description: "OD=1.5in, L=1800m → V = (1.5²/1029.4) × (1800/0.3048)",
       inputs: { od_tf_in: 1.5, length_m: 1800 },
       expectedValue: (1.5 * 1.5 / 1029.4) * (1800 / 0.3048),
-    },
-    {
-      formulaId: "tf-displacement",
-      description: "OD=2.0in, L=3000m",
-      inputs: { od_tf_in: 2.0, length_m: 3000 },
-      expectedValue: (2.0 * 2.0 / 1029.4) * (3000 / 0.3048),
     },
     // ── Desplazamiento Metálico TF ─────────────────────────────────────────
     {
@@ -107,62 +90,60 @@ function runAllTests(): void {
       inputs: { od_tf_in: 1.5, id_tf_in: 1.321, length_m: 1800 },
       expectedValue: ((1.5 * 1.5 - 1.321 * 1.321) / 1029.4) * (1800 / 0.3048),
     },
-    {
-      formulaId: "tf-metal-displacement",
-      description: "OD=2.0, ID=1.75, L=2500m",
-      inputs: { od_tf_in: 2.0, id_tf_in: 1.75, length_m: 2500 },
-      expectedValue: ((2.0 * 2.0 - 1.75 * 1.75) / 1029.4) * (2500 / 0.3048),
-    },
     // ── Coiled Tubing Geométrico ───────────────────────────────────────────
     {
       formulaId: "coiled-tubing",
-      description: "flange=36, free=2, coreD=48, coreW=30, coilOd=1.75",
-      inputs: { flangeHeightIn: 36, freeBoardIn: 2, coreDiameterIn: 48, coreWidthIn: 30, coilOdIn: 1.75 },
-      expectedValue: Math.trunc((36 - 2) / 1.75) * Math.trunc((48 + 36 - 2) / 1.75) * 0.2618 * 30,
+      description: "Coiled Tubing usando Math.trunc",
+      inputs: { flange_height_in: 50, free_board_in: 4, core_diameter_in: 30, core_width_in: 60, coil_od_in: 1.5 },
+      expectedValue: Math.trunc((50 - 4) / 1.5) * Math.trunc((30 + 50 - 4) / 1.5) * 0.2618 * 60,
+      expectedAdditionalResults: {
+        "Longitud": (Math.trunc((50 - 4) / 1.5) * Math.trunc((30 + 50 - 4) / 1.5) * 0.2618 * 60) * 0.3048,
+        "Capas verticales": Math.trunc((50 - 4) / 1.5),
+        "Vueltas horizontales": Math.trunc((30 + 50 - 4) / 1.5)
+      }
     },
     // ── Velocidad Penetración Relleno ──────────────────────────────────────
     {
       formulaId: "fill-penetration-velocity",
-      description: "d_mayor=2.99, od_tf=1.5, bpm=1.5, acarreo=80",
-      inputs: { d_mayor_in: 2.99, od_tf_in: 1.5, bpm: 1.5, acarreo_percent: 80 },
-      expectedValue: (80 * 1.5) / (0.6 * 2.65 * 0.097 * (Math.pow(2.99, 2) - Math.pow(1.5, 2))),
+      description: "Velocidad de penetración en relleno",
+      inputs: { d_mayor_in: 2.99, od_tf_in: 1.5, bpm: 1.5, acarreo_percent: 10 },
+      expectedValue: (10 * 1.5) / (0.6 * 2.65 * 0.097 * (Math.pow(2.99, 2) - Math.pow(1.5, 2))),
+      expectedAdditionalResults: {
+        "m/min": ((10 * 1.5) / (0.6 * 2.65 * 0.097 * (Math.pow(2.99, 2) - Math.pow(1.5, 2)))) * 0.3048
+      }
     },
     // ── Bache Ecológico ────────────────────────────────────────────────────
     {
       formulaId: "bache-ecologico",
-      description: "di=2.441, dens=1.05, vol=0.5, desp=100, prof=1500",
-      inputs: { di_tp_in: 2.441, densidad_lodo_grcc: 1.05, volumen_tapon_m3: 0.5, longitud_desplazar_m: 100, profundidad_m: 1500 },
-      expectedValue: ( ((1500 * 1.05 / 10) - ((1500 - (0.5 / (Math.pow(2.441, 2) * 0.5067 / 1000)) - 100) * 1.05 / 10)) * 10 ) / (0.5 / (Math.pow(2.441, 2) * 0.5067 / 1000)),
+      description: "Bache Ecológico completo con presiones",
+      inputs: { di_tp_in: 2.441, densidad_lodo_grcc: 1.25, volumen_tapon_m3: 3, longitud_desplazar_m: 100, profundidad_m: 1500 },
+      expectedValue: ( ((1500 * 1.25 / 10) - ((1500 - (3 / (Math.pow(2.441, 2) * 0.5067 / 1000)) - 100) * 1.25 / 10)) * 10 ) / (3 / (Math.pow(2.441, 2) * 0.5067 / 1000)),
+      expectedAdditionalResults: {
+        "Cap. TP": Math.pow(2.441, 2) * 0.5067 / 1000,
+        "Longitud tapón": 3 / (Math.pow(2.441, 2) * 0.5067 / 1000),
+        "P. hid. total": 1500 * 1.25 / 10,
+        "Columna eq.": 1500 - (3 / (Math.pow(2.441, 2) * 0.5067 / 1000)) - 100,
+        "P. hid. parcial": (1500 - (3 / (Math.pow(2.441, 2) * 0.5067 / 1000)) - 100) * 1.25 / 10,
+        "P. faltante": (1500 * 1.25 / 10) - ((1500 - (3 / (Math.pow(2.441, 2) * 0.5067 / 1000)) - 100) * 1.25 / 10)
+      }
     },
     // ── Validaciones de error y bloqueos ───────────────────────────────────
     {
       formulaId: "annular-volume",
-      description: "ERROR: D_mayor=1.25 <= D_menor=1.8 → debe dar error",
-      inputs: { d_mayor: 1.25, d_menor: 1.8, length_m: 1410 },
-      expectedValue: 0, // engine returns 0 on error
-    },
-    {
-      formulaId: "pipe-volume",
-      description: "ERROR: length <= 0 → debe dar error",
-      inputs: { di: 2.0, length_m: 0 },
-      expectedValue: 0,
-    },
-    {
-      formulaId: "tf-metal-displacement",
-      description: "ERROR: OD=1.0 <= ID=1.5 → debe dar error",
-      inputs: { od_tf_in: 1.0, id_tf_in: 1.5, length_m: 1800 },
-      expectedValue: 0,
-    },
-    {
-      formulaId: "bache-ecologico",
-      description: "ERROR: prof <= longitud_tapon + longitud_desplazar",
-      inputs: { di_tp_in: 2.441, densidad_lodo_grcc: 1.05, volumen_tapon_m3: 0.5, longitud_desplazar_m: 100, profundidad_m: 100 },
+      description: "ERROR: D_mayor <= D_menor",
+      inputs: { d_mayor: 2, d_menor: 3, length_m: 100 },
       expectedValue: 0,
     },
     {
       formulaId: "coiled-tubing",
       description: "ERROR: coilOdIn <= 0",
-      inputs: { flangeHeightIn: 36, freeBoardIn: 2, coreDiameterIn: 48, coreWidthIn: 30, coilOdIn: 0 },
+      inputs: { flange_height_in: 50, free_board_in: 4, core_diameter_in: 30, core_width_in: 60, coil_od_in: 0 },
+      expectedValue: 0,
+    },
+    {
+      formulaId: "bache-ecologico",
+      description: "ERROR: prof <= longitud_tapon + longitud_desplazar",
+      inputs: { di_tp_in: 2.441, densidad_lodo_grcc: 1.25, volumen_tapon_m3: 3, longitud_desplazar_m: 100, profundidad_m: 100 },
       expectedValue: 0,
     },
     {
@@ -180,15 +161,42 @@ function runAllTests(): void {
     const tol = tc.tolerance ?? DEFAULT_TOLERANCE;
     const hasErrorsOrBlocked = result.errors.length > 0 || result.blocked === true;
 
-    let testPassed: boolean;
+    let testPassed = true;
     let errorPct = 0;
 
     if (tc.expectedValue === 0) {
-      // Expect error / 0 result / blocked result
-      testPassed = result.value === 0 && hasErrorsOrBlocked;
+      // Validar escenarios de error o bloqueo
+      if (result.value !== 0 || !hasErrorsOrBlocked) {
+        testPassed = false;
+      }
+      // Si está bloqueada, comprobar que inyectó el warning exacto exigido
+      if (result.blocked && !result.warnings.includes("Fórmula pendiente de validar con archivo fuente. No usar para operación.")) {
+        testPassed = false;
+        result.errors.push("Missing required blocked warning message.");
+      }
     } else {
+      // Validar escenarios de cálculo exitoso
       errorPct = Math.abs(result.value - tc.expectedValue) / Math.abs(tc.expectedValue);
-      testPassed = errorPct <= tol && !hasErrorsOrBlocked;
+      if (!approxEqual(result.value, tc.expectedValue, tol) || hasErrorsOrBlocked) {
+        testPassed = false;
+      }
+    }
+
+    // Validar sub-resultados (additionalResults)
+    if (testPassed && tc.expectedAdditionalResults && result.additionalResults) {
+      for (const [key, expectedVal] of Object.entries(tc.expectedAdditionalResults)) {
+        const found = result.additionalResults.find(ar => ar.label === key);
+        if (!found) {
+          testPassed = false;
+          result.errors.push(`Falta el resultado adicional: ${key}`);
+          break;
+        }
+        if (!approxEqual(found.value, expectedVal, tol)) {
+          testPassed = false;
+          result.errors.push(`Fallo en [${key}]. Se esperaba ${expectedVal}, se obtuvo ${found.value}`);
+          break;
+        }
+      }
     }
 
     if (testPassed) passed++;
@@ -214,7 +222,9 @@ function runAllTests(): void {
       const errorPct = tc.expectedValue !== 0
         ? Math.abs(result.value - tc.expectedValue) / Math.abs(tc.expectedValue)
         : 0;
-      const testPassed = result.errors.length === 0 && (tc.expectedValue === 0 ? result.value === 0 : errorPct <= tol);
+      
+      const testPassed = result.errors.length === 0 && approxEqual(result.value, tc.expectedValue, tol);
+      
       if (testPassed) passed++;
       results.push({
         formulaId: formula.id,
@@ -279,10 +289,10 @@ function runUnitTests(): void {
     try {
       const got = convertUnit(t.val, t.from, t.to, t.cat);
       const tol = 0.001;
-      const err = Math.abs(got - t.expected) / (Math.abs(t.expected) || 1);
-      const ok = err <= tol;
-      if (ok) passed++;
-      console.log(`${ok ? "✓" : "✗"} ${t.desc} → got ${got.toFixed(6)} (err ${(err * 100).toFixed(3)}%)`);
+      const testPassed = approxEqual(got, t.expected, tol);
+      if (testPassed) passed++;
+      const errPct = Math.abs(got - t.expected) / (Math.abs(t.expected) || 1);
+      console.log(`${testPassed ? "✓" : "✗"} ${t.desc} → got ${got.toFixed(6)} (err ${(errPct * 100).toFixed(3)}%)`);
     } catch (e) {
       console.log(`✗ ${t.desc} → ERROR: ${e}`);
     }

@@ -10,6 +10,7 @@
 
 export type UnitCategoryId =
   | "length"
+  | "diameter"
   | "area"
   | "volume"
   | "pressure"
@@ -51,23 +52,32 @@ const lin = (factor: number): Pick<UnitDef, "toBase" | "fromBase"> => ({
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
-// LENGTH  (base: metre)
+// LENGTH & DIAMETER  (base: metre)
 // ─────────────────────────────────────────────────────────────────────────────
+const lengthUnits: UnitDef[] = [
+  { id: "m",    label: "Metro",           symbol: "m",    ...lin(1) },
+  { id: "km",   label: "Kilómetro",       symbol: "km",   ...lin(1000) },
+  { id: "cm",   label: "Centímetro",      symbol: "cm",   ...lin(0.01) },
+  { id: "mm",   label: "Milímetro",       symbol: "mm",   ...lin(0.001) },
+  { id: "in",   label: "Pulgada",         symbol: "in",   ...lin(0.0254) },
+  { id: "ft",   label: "Pie",             symbol: "ft",   ...lin(0.3048) },
+  { id: "yd",   label: "Yarda",           symbol: "yd",   ...lin(0.9144) },
+  { id: "mile", label: "Milla terrestre", symbol: "mi",   ...lin(1609.344) },
+  { id: "nmi",  label: "Milla náutica",   symbol: "nmi",  ...lin(1852) },
+];
+
 const length: UnitCategoryDef = {
   id: "length",
   label: "Longitud",
   baseSymbol: "m",
-  units: [
-    { id: "m",    label: "Metro",           symbol: "m",    ...lin(1) },
-    { id: "km",   label: "Kilómetro",       symbol: "km",   ...lin(1000) },
-    { id: "cm",   label: "Centímetro",      symbol: "cm",   ...lin(0.01) },
-    { id: "mm",   label: "Milímetro",       symbol: "mm",   ...lin(0.001) },
-    { id: "in",   label: "Pulgada",         symbol: "in",   ...lin(0.0254) },
-    { id: "ft",   label: "Pie",             symbol: "ft",   ...lin(0.3048) },
-    { id: "yd",   label: "Yarda",           symbol: "yd",   ...lin(0.9144) },
-    { id: "mile", label: "Milla terrestre", symbol: "mi",   ...lin(1609.344) },
-    { id: "nmi",  label: "Milla náutica",   symbol: "nmi",  ...lin(1852) },
-  ],
+  units: lengthUnits,
+};
+
+const diameter: UnitCategoryDef = {
+  id: "diameter",
+  label: "Diámetro",
+  baseSymbol: "m",
+  units: lengthUnits,
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -126,6 +136,7 @@ const pressure: UnitCategoryDef = {
     { id: "kPsi",   label: "Kilo-PSI",   symbol: "kpsi",    ...lin(6.894757e6) },
     { id: "atm",    label: "Atmósfera",  symbol: "atm",     ...lin(101325) },
     { id: "kg_cm2", label: "kg/cm²",     symbol: "kg/cm²",  ...lin(98066.5) },
+    { id: "kg/cm2", label: "kg/cm²",     symbol: "kg/cm²",  ...lin(98066.5) }, // Alias
     { id: "mmHg",   label: "mmHg (torr)",symbol: "mmHg",    ...lin(133.322) },
     { id: "inH2O",  label: "in H₂O",    symbol: "inH₂O",   ...lin(249.089) },
   ],
@@ -144,7 +155,8 @@ const flow: UnitCategoryDef = {
     { id: "m3_h",   label: "m³/hora",     symbol: "m³/h",   ...lin(1/3600) },
     { id: "L_s",    label: "L/segundo",   symbol: "L/s",    ...lin(0.001) },
     { id: "L_min",  label: "L/minuto",    symbol: "L/min",  ...lin(0.001/60) },
-    { id: "LPM",    label: "LPM (L/min)", symbol: "LPM",    ...lin(0.001/60) }, // ALIAS AGREGADO
+    { id: "l/min",  label: "l/min",       symbol: "l/min",  ...lin(0.001/60) }, // Alias
+    { id: "LPM",    label: "LPM (L/min)", symbol: "LPM",    ...lin(0.001/60) }, // Alias
     { id: "BPM",    label: "Barril/minuto",  symbol: "BPM", ...lin(0.158987/60) },
     { id: "BPD",    label: "Barril/día",     symbol: "BPD", ...lin(0.158987/86400) },
     { id: "GPM",    label: "Galón/minuto (US)", symbol: "GPM", ...lin(0.00378541/60) },
@@ -164,12 +176,15 @@ const density: UnitCategoryDef = {
   baseSymbol: "kg/m³",
   units: [
     { id: "kg_m3",  label: "kg/m³",        symbol: "kg/m³",  ...lin(1) },
-    { id: "g_cc",   label: "g/cc (gr/cc)",  symbol: "g/cc",   ...lin(1000) },
-    { id: "g_L",    label: "g/L",           symbol: "g/L",    ...lin(1) },
-    { id: "ppg",    label: "lb/gal (ppg)",  symbol: "ppg",    ...lin(119.826) }, // ID PPG DIRECTO
-    { id: "lb_gal", label: "lb/gal",        symbol: "lb/gal", ...lin(119.826) }, // ALIAS PARA PPG
-    { id: "lb_ft3", label: "lb/ft³",        symbol: "lb/ft³", ...lin(16.01846) },
-    { id: "lb_in3", label: "lb/in³",        symbol: "lb/in³", ...lin(27679.9) },
+    { id: "kg/m3",  label: "kg/m³",        symbol: "kg/m³",  ...lin(1) }, // Alias
+    { id: "g_cc",   label: "g/cc",         symbol: "g/cc",   ...lin(1000) },
+    { id: "gr_cc",  label: "gr/cc",        symbol: "gr/cc",  ...lin(1000) }, // Alias
+    { id: "gr/cc",  label: "gr/cc",        symbol: "gr/cc",  ...lin(1000) }, // Alias
+    { id: "g_L",    label: "g/L",          symbol: "g/L",    ...lin(1) },
+    { id: "ppg",    label: "lb/gal (ppg)", symbol: "ppg",    ...lin(119.826) }, // ID PPG DIRECTO
+    { id: "lb/gal", label: "lb/gal",       symbol: "lb/gal", ...lin(119.826) }, // Alias
+    { id: "lb_ft3", label: "lb/ft³",       symbol: "lb/ft³", ...lin(16.01846) },
+    { id: "lb_in3", label: "lb/in³",       symbol: "lb/in³", ...lin(27679.9) },
     { id: "sg",     label: "Gravedad esp. (SG)", symbol: "SG",...lin(1000) },
     // API gravity: non-linear, handled via special case
     {
@@ -263,7 +278,7 @@ const torque: UnitCategoryDef = {
     { id: "Nm",    label: "Newton·metro",  symbol: "N·m",   ...lin(1) },
     { id: "kNm",   label: "Kilonewton·m",  symbol: "kN·m",  ...lin(1000) },
     { id: "ft_lb", label: "Pie·libra",     symbol: "ft·lb", ...lin(1.35582) },
-    { id: "ft-lb", label: "Pie·libra (alias)", symbol: "ft·lb", ...lin(1.35582) }, // ALIAS AGREGADO
+    { id: "ft-lb", label: "Pie·libra (alias)", symbol: "ft·lb", ...lin(1.35582) }, // Alias
     { id: "in_lb", label: "Pulgada·libra", symbol: "in·lb", ...lin(0.112985) },
     { id: "in_oz", label: "Pulgada·onza",  symbol: "in·oz", ...lin(0.00706155) },
     { id: "kgf_m", label: "kgf·metro",     symbol: "kgf·m", ...lin(9.80665) },
@@ -377,6 +392,7 @@ const angle: UnitCategoryDef = {
 // ─────────────────────────────────────────────────────────────────────────────
 export const UNIT_CATEGORIES: UnitCategoryDef[] = [
   length,
+  diameter,
   area,
   volume,
   pressure,
