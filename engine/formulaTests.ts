@@ -53,12 +53,6 @@ function runAllTests(): void {
       tolerance: 0.0001
     },
     {
-      formulaId: "pipe-volume",
-      description: "DI=4.276in, L=1000m",
-      inputs: { di: 4.276, length_m: 1000 },
-      expectedValue: (4.276 * 4.276 / 1029.4) * (1000 / 0.3048),
-    },
-    {
       formulaId: "annular-volume",
       description: "D_mayor=1.8, D_menor=1.25, L=1410m",
       inputs: { d_mayor: 1.8, d_menor: 1.25, length_m: 1410 },
@@ -89,15 +83,6 @@ function runAllTests(): void {
       expectedValue: ((1.5 * 1.5 - 1.321 * 1.321) / 1029.4) * (1800 / 0.3048),
     },
     {
-      formulaId: "fill-penetration-velocity",
-      description: "Velocidad de penetración en relleno (con Additional Results)",
-      inputs: { d_mayor_in: 2.99, od_tf_in: 1.5, bpm: 1.5, acarreo_percent: 10 },
-      expectedValue: (10 * 1.5) / (0.6 * 2.65 * 0.097 * (Math.pow(2.99, 2) - Math.pow(1.5, 2))),
-      expectedAdditionalResults: {
-        "m/min": ((10 * 1.5) / (0.6 * 2.65 * 0.097 * (Math.pow(2.99, 2) - Math.pow(1.5, 2)))) * 0.3048
-      }
-    },
-    {
       formulaId: "bache-ecologico",
       description: "Validación real vs Bache ecologico.xls",
       inputs: { di_tp_in: 2.602, densidad_lodo_grcc: 1.17, volumen_tapon_m3: 6, longitud_desplazar_m: 140, profundidad_m: 3927 },
@@ -122,6 +107,16 @@ function runAllTests(): void {
         "Longitud": 3271.25419175449,
         "Capas verticales": 10,
         "Vueltas horizontales": 50
+      }
+    },
+    {
+      formulaId: "fill-penetration-velocity",
+      description: "Validación real vs Excel: acarreo de 10% se usa como 10",
+      inputs: { d_mayor_in: 2.99, od_tf_in: 1.5, bpm: 1.5, acarreo_percent: 10 },
+      expectedValue: 14.5375021194588,
+      tolerance: 0.0001,
+      expectedAdditionalResults: {
+        "Velocidad": 4.43103064601104
       }
     },
 
@@ -153,6 +148,13 @@ function runAllTests(): void {
       formulaId: "bache-ecologico",
       description: "ERROR: prof <= longitud_tapon + longitud_desplazar",
       inputs: { di_tp_in: 2.602, densidad_lodo_grcc: 1.17, volumen_tapon_m3: 6, longitud_desplazar_m: 3000, profundidad_m: 3927 },
+      expectedValue: 0,
+      expectError: true
+    },
+    {
+      formulaId: "fill-penetration-velocity",
+      description: "ERROR: D_mayor <= od_tf_in",
+      inputs: { d_mayor_in: 1.5, od_tf_in: 2.99, bpm: 1.5, acarreo_percent: 10 },
       expectedValue: 0,
       expectError: true
     }

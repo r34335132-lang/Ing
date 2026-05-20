@@ -389,145 +389,6 @@ const tfDisplacement: Formula = {
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
-// 6. DESPLAZAMIENTO METÁLICO DE TF
-// Source: CALCULO VOLUMEN TF.xls · Hoja VOLUMENES · Fórmula G37
-// ─────────────────────────────────────────────────────────────────────────────
-const tfMetalDisplacement: Formula = {
-  id: "tf-metal-displacement",
-  name: "Desplazamiento Metálico de TF",
-  category: "Coiled Tubing",
-  description: "Volumen de metal de la TF — diferencia entre volumen externo e interno. Usado para calcular el efecto de pistón y la flotabilidad.",
-  icon: "circle",
-  inputs: [
-    { key: "od_tf_in", label: "OD de TF", unit: "in", type: "number", required: true, min: 0.001, placeholder: "Ej: 1.5" },
-    { key: "id_tf_in", label: "ID de TF", unit: "in", type: "number", required: true, min: 0.001, placeholder: "Ej: 1.321" },
-    { key: "length_m", label: "Longitud", unit: "m", type: "number", required: true, min: 0.001, placeholder: "Ej: 1800" },
-  ],
-  output: { label: "Desplazamiento Metálico", unit: "bbl" },
-  formulaText: "V(bbl) = ((OD_TF² - ID_TF²) / 1029.4) × (L(m) / 0.3048)",
-  references: ["CALCULO VOLUMEN TF.xls — Hoja VOLUMENES, fórmula G37"],
-  needsReview: false,
-  testCases: [
-    {
-      description: "OD=1.5in, ID=1.321in, L=1800m",
-      inputs: { od_tf_in: 1.5, id_tf_in: 1.321, length_m: 1800 },
-      expectedValue: ((1.5 * 1.5 - 1.321 * 1.321) / 1029.4) * (1800 / 0.3048),
-      tolerance: 0.001,
-    },
-  ],
-  calculate(inputs) {
-    const od = Number(inputs["od_tf_in"]);
-    const id = Number(inputs["id_tf_in"]);
-    const length_m = Number(inputs["length_m"]);
-    const errors: string[] = [];
-    const warnings: string[] = [];
-
-    if (isNaN(od) || od <= 0) errors.push("OD de TF debe ser mayor que cero.");
-    if (isNaN(id) || id <= 0) errors.push("ID de TF debe ser mayor que cero.");
-    if (!isNaN(od) && !isNaN(id) && od <= id) errors.push("OD debe ser estrictamente mayor que ID.");
-    if (isNaN(length_m) || length_m <= 0) errors.push("Longitud debe ser mayor que cero.");
-    if (errors.length > 0) return { value: 0, unit: "bbl", inputs, steps: [], warnings, errors };
-
-    const length_ft = length_m / 0.3048;
-    const diff = od * od - id * id;
-    const capacity = diff / 1029.4;
-    const vol_bbl = capacity * length_ft;
-    const vol_liters = vol_bbl * 158.987;
-    const vol_m3 = vol_bbl * 0.158987;
-
-    return {
-      value: Math.round(vol_bbl * 10000) / 10000,
-      unit: "bbl",
-      inputs,
-      steps: [
-        `Longitud: ${length_m} m ÷ 0.3048 = ${length_ft.toFixed(4)} ft`,
-        `Área metálica: OD² - ID² = ${od}² - ${id}² = ${(od * od).toFixed(6)} - ${(id * id).toFixed(6)} = ${diff.toFixed(6)} in²`,
-        `Capacidad metálica: ${diff.toFixed(6)} ÷ 1029.4 = ${capacity.toFixed(8)} bbl/ft`,
-        `Vol metálico: ${capacity.toFixed(8)} × ${length_ft.toFixed(4)} = ${vol_bbl.toFixed(4)} bbl`,
-        `(Ref: CALCULO VOLUMEN TF.xls, hoja VOLUMENES, fórmula G37)`,
-      ],
-      warnings,
-      errors: [],
-      additionalResults: [
-        { label: "Litros", value: Math.round(vol_liters * 100) / 100, unit: "L" },
-        { label: "m³", value: Math.round(vol_m3 * 10000) / 10000, unit: "m³" },
-      ],
-    };
-  },
-};
-
-// ─────────────────────────────────────────────────────────────────────────────
-// 7. CAPACIDAD DE CARRETE CT
-// Source: CoilTubingReelCapacitycalculator.xls
-// ─────────────────────────────────────────────────────────────────────────────
-const coiledTubing: Formula = {
-  id: "coiled-tubing",
-  name: "Capacidad de Carrete CT",
-  category: "Coiled Tubing",
-  description: "Longitud estimada de CT en el carrete. Fórmula geométrica directa del Excel fuente.",
-  icon: "reload-circle",
-  inputs: [
-    { key: "flangeHeightIn", label: "Altura de flange", unit: "in", type: "number", required: true, min: 0.001, placeholder: "Ej: 25" },
-    { key: "freeBoardIn", label: "Free board", unit: "in", type: "number", required: true, min: 0, placeholder: "Ej: 1" },
-    { key: "coreDiameterIn", label: "Diámetro del núcleo", unit: "in", type: "number", required: true, min: 0.001, placeholder: "Ej: 96" },
-    { key: "coreWidthIn", label: "Ancho del núcleo", unit: "in", type: "number", required: true, min: 0.001, placeholder: "Ej: 82" },
-    { key: "coilOdIn", label: "OD del coil (CT OD)", unit: "in", type: "number", required: true, min: 0.001, placeholder: "Ej: 2.375" },
-  ],
-  output: { label: "Longitud estimada CT", unit: "ft" },
-  formulaText:
-    "L(ft) = TRUNC((flangeH - freeBoard) / coilOD) × TRUNC((coreD + flangeH - freeBoard) / coilOD) × (π/12) × coreW",
-  references: ["CoilTubingReelCapacitycalculator.xls"],
-  needsReview: false, // VALIDADA: Desbloqueada para operación real
-  calculate(inputs) {
-    const flangeH = Number(inputs["flangeHeightIn"]);
-    const freeBoard = Number(inputs["freeBoardIn"]);
-    const coreD = Number(inputs["coreDiameterIn"]);
-    const coreW = Number(inputs["coreWidthIn"]);
-    const coilOd = Number(inputs["coilOdIn"]);
-    const errors: string[] = [];
-
-    if (isNaN(flangeH) || flangeH <= 0) errors.push("Altura de flange debe ser > 0.");
-    if (isNaN(freeBoard) || freeBoard < 0) errors.push("Free board debe ser >= 0.");
-    if (!isNaN(flangeH) && !isNaN(freeBoard) && flangeH <= freeBoard) errors.push("Altura de flange debe ser mayor que free board.");
-    if (isNaN(coreD) || coreD <= 0) errors.push("Diámetro del núcleo debe ser > 0.");
-    if (isNaN(coreW) || coreW <= 0) errors.push("Ancho del núcleo debe ser > 0.");
-    if (isNaN(coilOd) || coilOd <= 0) errors.push("OD del coil debe ser > 0.");
-    
-    if (errors.length > 0) return { value: 0, unit: "ft", inputs, steps: [], warnings: [], errors };
-
-    const verticalLayers = Math.trunc((flangeH - freeBoard) / coilOd);
-    const horizontalWraps = Math.trunc((coreD + flangeH - freeBoard) / coilOd);
-    
-    if (verticalLayers <= 0) { errors.push("Capas verticales resultan 0. Revisar inputs."); return { value: 0, unit: "ft", inputs, steps: [], warnings: [], errors }; }
-    if (horizontalWraps <= 0) { errors.push("Vueltas horizontales resultan 0. Revisar inputs."); return { value: 0, unit: "ft", inputs, steps: [], warnings: [], errors }; }
-
-    // Constante exacta del Excel: 3.1415926535 / 12
-    const COIL_LENGTH_FACTOR = 3.1415926535 / 12;
-    const lengthFt = verticalLayers * horizontalWraps * COIL_LENGTH_FACTOR * coreW;
-    const lengthM = lengthFt * 0.3048;
-
-    return {
-      value: lengthFt,
-      unit: "ft",
-      inputs,
-      steps: [
-        `Capas verticales (F16): TRUNC((${flangeH} - ${freeBoard}) / ${coilOd}) = ${verticalLayers}`,
-        `Vueltas horizontales (F17): TRUNC((${coreD} + ${flangeH} - ${freeBoard}) / ${coilOd}) = ${horizontalWraps}`,
-        `Constante factor: 3.1415926535 / 12 = ${COIL_LENGTH_FACTOR.toFixed(6)}`,
-        `Longitud (G26): ${verticalLayers} × ${horizontalWraps} × ${COIL_LENGTH_FACTOR.toFixed(6)} × ${coreW} = ${lengthFt.toFixed(4)} ft`,
-      ],
-      warnings: [],
-      errors: [],
-      additionalResults: [
-        { label: "Longitud", value: lengthM, unit: "m" },
-        { label: "Capas verticales", value: verticalLayers, unit: "capas" },
-        { label: "Vueltas horizontales", value: horizontalWraps, unit: "vueltas" },
-      ],
-    };
-  },
-};
-
-// ─────────────────────────────────────────────────────────────────────────────
 // 8. VELOCIDAD DE PENETRACIÓN EN RELLENO
 // Source: CALCULO VOLUMEN TF.xls · Hoja VELOCIDADES · Fórmula H30
 // ─────────────────────────────────────────────────────────────────────────────
@@ -541,54 +402,57 @@ const fillPenetrationVelocity: Formula = {
     { key: "d_mayor_in", label: "Diámetro del agujero/TR", unit: "in", type: "number", required: true, min: 0.001, placeholder: "Ej: 2.99" },
     { key: "od_tf_in", label: "OD del CT/TF", unit: "in", type: "number", required: true, min: 0.001, placeholder: "Ej: 1.5" },
     { key: "bpm", label: "Gasto de bombeo", unit: "BPM", type: "number", required: true, min: 0, placeholder: "Ej: 1.5" },
-    { key: "acarreo_percent", label: "Factor de acarreo", unit: "%", type: "number", required: true, min: 0.001, max: 100, placeholder: "Ej: 80" },
+    { key: "acarreo_percent", label: "Factor de acarreo", unit: "%", type: "number", required: true, min: 0.001, max: 100, placeholder: "Ej: 10" },
   ],
   output: { label: "Velocidad de Penetración", unit: "ft/min" },
   formulaText: "V(ft/min) = (acarreo% × BPM) / (0.6 × 2.65 × 0.097 × (D_mayor² - OD_TF²))",
   references: ["CALCULO VOLUMEN TF.xls — Hoja VELOCIDADES, fórmula H30"],
-  needsReview: false,
+  needsReview: false, // VALIDADA contra Excel real
   calculate(inputs) {
-    const d_mayor = Number(inputs["d_mayor_in"]);
-    const od_tf = Number(inputs["od_tf_in"]);
+    const d_mayor_in = Number(inputs["d_mayor_in"]);
+    const od_tf_in = Number(inputs["od_tf_in"]);
     const bpm = Number(inputs["bpm"]);
-    const acarreo = Number(inputs["acarreo_percent"]);
+    const acarreo_percent = Number(inputs["acarreo_percent"]);
     const errors: string[] = [];
     const warnings: string[] = [];
 
-    if (isNaN(d_mayor) || d_mayor <= 0) errors.push("Diámetro del agujero/TR debe ser > 0.");
-    if (isNaN(od_tf) || od_tf <= 0) errors.push("OD del CT/TF debe ser > 0.");
-    if (!isNaN(d_mayor) && !isNaN(od_tf) && d_mayor <= od_tf) errors.push("D_mayor debe ser estrictamente mayor que OD del CT.");
+    // Validaciones estrictas
+    if (isNaN(d_mayor_in) || d_mayor_in <= 0) errors.push("Diámetro del agujero/TR debe ser > 0.");
+    if (isNaN(od_tf_in) || od_tf_in <= 0) errors.push("OD del CT/TF debe ser > 0.");
+    if (!isNaN(d_mayor_in) && !isNaN(od_tf_in) && d_mayor_in <= od_tf_in) errors.push("D_mayor debe ser estrictamente mayor que OD del CT.");
     if (isNaN(bpm) || bpm < 0) errors.push("Gasto debe ser >= 0.");
-    if (isNaN(acarreo) || acarreo <= 0) errors.push("Factor de acarreo debe ser > 0.");
+    if (isNaN(acarreo_percent) || acarreo_percent <= 0) errors.push("Factor de acarreo debe ser > 0.");
+    
     if (errors.length > 0) return { value: 0, unit: "ft/min", inputs, steps: [], warnings, errors };
 
-    // Constantes: 0.6 (coeficiente), 2.65 (densidad relleno gr/cc), 0.097 (factor unidades)
-    const COEFF = 0.6;
-    const DENSITY_FILL = 2.65;
-    const UNIT_FACTOR = 0.097;
-
-    const areaAnular = d_mayor * d_mayor - od_tf * od_tf;
-    const denominator = COEFF * DENSITY_FILL * UNIT_FACTOR * areaAnular;
-    if (denominator === 0) { errors.push("División entre cero: revisar dimensiones."); return { value: 0, unit: "ft/min", inputs, steps: [], warnings, errors }; }
-    const vel_ft_min = (acarreo * bpm) / denominator;
+    // Fórmulas Matemáticas Directas sin Redondeos (Precisión de Excel)
+    const areaDiff = d_mayor_in * d_mayor_in - od_tf_in * od_tf_in;
+    const denominator = 0.6 * 2.65 * 0.097 * areaDiff;
+    
+    if (denominator === 0) { 
+      errors.push("División entre cero: revisar dimensiones."); 
+      return { value: 0, unit: "ft/min", inputs, steps: [], warnings, errors }; 
+    }
+    
+    const vel_ft_min = (acarreo_percent * bpm) / denominator;
     const vel_m_min = vel_ft_min * 0.3048;
 
     warnings.push("Constantes: 0.6 (coeficiente Cd), 2.65 gr/cc (densidad relleno), 0.097 (factor de unidades). Validar contra CALCULO VOLUMEN TF.xls, hoja VELOCIDADES.");
 
     return {
-      value: Math.round(vel_ft_min * 100) / 100,
+      value: vel_ft_min,
       unit: "ft/min",
       inputs,
       steps: [
-        `Área anular: ${d_mayor}² - ${od_tf}² = ${areaAnular.toFixed(6)} in²`,
-        `Denominador: 0.6 × 2.65 × 0.097 × ${areaAnular.toFixed(6)} = ${denominator.toFixed(8)}`,
-        `Velocidad: (${acarreo} × ${bpm}) ÷ ${denominator.toFixed(8)} = ${vel_ft_min.toFixed(4)} ft/min`,
+        `Área anular: ${d_mayor_in}² - ${od_tf_in}² = ${areaDiff.toFixed(6)} in²`,
+        `Denominador: 0.6 × 2.65 × 0.097 × ${areaDiff.toFixed(6)} = ${denominator.toFixed(8)}`,
+        `Velocidad: (${acarreo_percent} × ${bpm}) ÷ ${denominator.toFixed(8)} = ${vel_ft_min.toFixed(4)} ft/min`,
         `(Ref: CALCULO VOLUMEN TF.xls, hoja VELOCIDADES, fórmula H30)`,
       ],
       warnings,
       errors: [],
       additionalResults: [
-        { label: "m/min", value: Math.round(vel_m_min * 1000) / 1000, unit: "m/min" },
+        { label: "Velocidad", value: vel_m_min, unit: "m/min" },
       ],
     };
   },

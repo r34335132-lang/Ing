@@ -67,6 +67,25 @@ export const excelValidationCases: ExcelValidationCase[] = [
     }
   },
   {
+    formulaId: "fill-penetration-velocity",
+    sourceFile: "CALCULO VOLUMEN TF.xls",
+    sourceSheet: "VELOCIDADES",
+    sourceCell: "H30",
+    inputs: {
+      d_mayor_in: 2.99,
+      od_tf_in: 1.5,
+      bpm: 1.5,
+      acarreo_percent: 10
+    },
+    expectedValue: 14.5375021194588,
+    tolerance: 0.0001,
+    status: "validated",
+    notes: "Caso real extraído del Excel. El acarreo se usa como 10 para representar 10%, no como 0.10.",
+    additionalExpected: {
+      "Velocidad": 4.43103064601104
+    }
+  },
+  {
     formulaId: "hydraulics",
     sourceFile: "HIDRAULICA_RIVERO.xls",
     sourceSheet: "ECD",
