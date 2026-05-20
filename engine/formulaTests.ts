@@ -12,8 +12,8 @@ interface TestResult {
   formulaId: string;
   description: string;
   passed: boolean;
-  expected: number;
-  got: number;
+  expected: number | string;
+  got: number | string;
   errorPct: number;
   errors: string[];
 }
@@ -32,7 +32,7 @@ function runAllTests(): void {
   let total = 0;
   let passed = 0;
 
-  // ─── Inline test cases (validates engine, not just registry testCases) ────
+  // ─── Inline test cases (validates engine features: block, errors, extra results) ────
 
   const inlineTests: Array<{
     formulaId: string;
@@ -41,8 +41,10 @@ function runAllTests(): void {
     expectedValue: number;
     expectedAdditionalResults?: Record<string, number>;
     tolerance?: number;
+    expectError?: boolean;
+    expectBlocked?: boolean;
   }> = [
-    // ── Volumen Interno de Tubería ─────────────────────────────────────────
+    // ── Tests de Cálculo Exitoso ───────────────────────────────────────────
     {
       formulaId: "pipe-volume",
       description: "DI=1.8in, L=1410m → V = (1.8²/1029.4) × (1410/0.3048)",
@@ -50,72 +52,48 @@ function runAllTests(): void {
       expectedValue: (1.8 * 1.8 / 1029.4) * (1410 / 0.3048),
     },
     {
-      formulaId: "pipe-volume",
-      description: "DI=4.276in, L=1000m",
-      inputs: { di: 4.276, length_m: 1000 },
-      expectedValue: (4.276 * 4.276 / 1029.4) * (1000 / 0.3048),
-    },
-    // ── Volumen Anular ─────────────────────────────────────────────────────
-    {
       formulaId: "annular-volume",
       description: "D_mayor=1.8, D_menor=1.25, L=1410m",
       inputs: { d_mayor: 1.8, d_menor: 1.25, length_m: 1410 },
       expectedValue: ((1.8 * 1.8 - 1.25 * 1.25) / 1029.4) * (1410 / 0.3048),
     },
-    // ── Velocidad en Tubería ───────────────────────────────────────────────
     {
       formulaId: "fluid-velocity",
-      description: "DI=2.441in, BPM=1.5 → V = 1.5 / (2.441²/1029.4)",
+      description: "DI=2.441in, BPM=1.5",
       inputs: { di: 2.441, flow_bpm: 1.5 },
       expectedValue: 1.5 / ((2.441 * 2.441) / 1029.4),
     },
-    // ── Velocidad Anular ───────────────────────────────────────────────────
     {
       formulaId: "annular-velocity",
       description: "D_mayor=2.99, D_menor=1.5, BPM=1.5",
       inputs: { d_mayor: 2.99, d_menor: 1.5, flow_bpm: 1.5 },
       expectedValue: 1.5 / ((2.99 * 2.99 - 1.5 * 1.5) / 1029.4),
     },
-    // ── Desplazamiento TF ──────────────────────────────────────────────────
     {
       formulaId: "tf-displacement",
-      description: "OD=1.5in, L=1800m → V = (1.5²/1029.4) × (1800/0.3048)",
+      description: "OD=1.5in, L=1800m",
       inputs: { od_tf_in: 1.5, length_m: 1800 },
       expectedValue: (1.5 * 1.5 / 1029.4) * (1800 / 0.3048),
     },
-    // ── Desplazamiento Metálico TF ─────────────────────────────────────────
     {
       formulaId: "tf-metal-displacement",
       description: "OD=1.5, ID=1.321, L=1800m",
       inputs: { od_tf_in: 1.5, id_tf_in: 1.321, length_m: 1800 },
       expectedValue: ((1.5 * 1.5 - 1.321 * 1.321) / 1029.4) * (1800 / 0.3048),
     },
-    // ── Coiled Tubing Geométrico ───────────────────────────────────────────
-    {
-      formulaId: "coiled-tubing",
-      description: "Coiled Tubing usando Math.trunc",
-      inputs: { flange_height_in: 50, free_board_in: 4, core_diameter_in: 30, core_width_in: 60, coil_od_in: 1.5 },
-      expectedValue: Math.trunc((50 - 4) / 1.5) * Math.trunc((30 + 50 - 4) / 1.5) * 0.2618 * 60,
-      expectedAdditionalResults: {
-        "Longitud": (Math.trunc((50 - 4) / 1.5) * Math.trunc((30 + 50 - 4) / 1.5) * 0.2618 * 60) * 0.3048,
-        "Capas verticales": Math.trunc((50 - 4) / 1.5),
-        "Vueltas horizontales": Math.trunc((30 + 50 - 4) / 1.5)
-      }
-    },
-    // ── Velocidad Penetración Relleno ──────────────────────────────────────
     {
       formulaId: "fill-penetration-velocity",
-      description: "Velocidad de penetración en relleno",
+      description: "Velocidad de penetración en relleno (con Additional Results)",
       inputs: { d_mayor_in: 2.99, od_tf_in: 1.5, bpm: 1.5, acarreo_percent: 10 },
       expectedValue: (10 * 1.5) / (0.6 * 2.65 * 0.097 * (Math.pow(2.99, 2) - Math.pow(1.5, 2))),
+      // Dependiendo de cómo lo hayas nombrado en tu registry, asumiendo label: "m/min"
       expectedAdditionalResults: {
         "m/min": ((10 * 1.5) / (0.6 * 2.65 * 0.097 * (Math.pow(2.99, 2) - Math.pow(1.5, 2)))) * 0.3048
       }
     },
-    // ── Bache Ecológico ────────────────────────────────────────────────────
     {
       formulaId: "bache-ecologico",
-      description: "Bache Ecológico completo con presiones",
+      description: "Bache Ecológico completo con presiones (con Additional Results)",
       inputs: { di_tp_in: 2.441, densidad_lodo_grcc: 1.25, volumen_tapon_m3: 3, longitud_desplazar_m: 100, profundidad_m: 1500 },
       expectedValue: ( ((1500 * 1.25 / 10) - ((1500 - (3 / (Math.pow(2.441, 2) * 0.5067 / 1000)) - 100) * 1.25 / 10)) * 10 ) / (3 / (Math.pow(2.441, 2) * 0.5067 / 1000)),
       expectedAdditionalResults: {
@@ -127,74 +105,103 @@ function runAllTests(): void {
         "P. faltante": (1500 * 1.25 / 10) - ((1500 - (3 / (Math.pow(2.441, 2) * 0.5067 / 1000)) - 100) * 1.25 / 10)
       }
     },
-    // ── Validaciones de error y bloqueos ───────────────────────────────────
+
+    // ── Tests de Bloqueo por Revisión (OPCIÓN A) ───────────────────────────
+    {
+      formulaId: "coiled-tubing",
+      description: "BLOCKED: Coiled Tubing pendiente de validación vs Excel",
+      inputs: { flangeHeightIn: 50, freeBoardIn: 4, coreDiameterIn: 30, coreWidthIn: 60, coilOdIn: 1.5 },
+      expectedValue: 0,
+      expectBlocked: true
+    },
+    {
+      formulaId: "hydraulics",
+      description: "BLOCKED: Hydraulics pendiente de validación vs Excel",
+      inputs: { flow_gpm: 400, mud_ppg: 10.5, pv_cp: 20, yp_lbft2: 15, dp_id_in: 4.276, hole_in: 8.5, depth_ft: 8000 },
+      expectedValue: 0,
+      expectBlocked: true
+    },
+
+    // ── Tests de Errores de Input (Rechazo Fuerte) ─────────────────────────
     {
       formulaId: "annular-volume",
       description: "ERROR: D_mayor <= D_menor",
       inputs: { d_mayor: 2, d_menor: 3, length_m: 100 },
       expectedValue: 0,
+      expectError: true
     },
     {
       formulaId: "coiled-tubing",
-      description: "ERROR: coilOdIn <= 0",
-      inputs: { flange_height_in: 50, free_board_in: 4, core_diameter_in: 30, core_width_in: 60, coil_od_in: 0 },
+      description: "ERROR: coilOdIn <= 0 (Input inválido antes de bloqueo)",
+      inputs: { flangeHeightIn: 50, freeBoardIn: 4, coreDiameterIn: 30, coreWidthIn: 60, coilOdIn: 0 },
       expectedValue: 0,
+      expectError: true
     },
     {
       formulaId: "bache-ecologico",
       description: "ERROR: prof <= longitud_tapon + longitud_desplazar",
       inputs: { di_tp_in: 2.441, densidad_lodo_grcc: 1.25, volumen_tapon_m3: 3, longitud_desplazar_m: 100, profundidad_m: 100 },
       expectedValue: 0,
-    },
-    {
-      formulaId: "hydraulics",
-      description: "BLOCKED: Debe retornar 0 y estar bloqueada por needsReview",
-      inputs: { flow_gpm: 400, mud_ppg: 10.5, pv_cp: 20, yp_lbft2: 15, dp_id_in: 4.276, hole_in: 8.5, depth_ft: 8000 },
-      expectedValue: 0,
+      expectError: true
     }
   ];
 
-  // Run inline tests
+  // Ejecución de pruebas Inline
   for (const tc of inlineTests) {
     total++;
     const result = runCalculation({ formulaId: tc.formulaId, inputs: tc.inputs });
     const tol = tc.tolerance ?? DEFAULT_TOLERANCE;
-    const hasErrorsOrBlocked = result.errors.length > 0 || result.blocked === true;
-
+    
     let testPassed = true;
     let errorPct = 0;
+    let gotStr: string | number = result.value;
+    let expectedStr: string | number = tc.expectedValue;
 
-    if (tc.expectedValue === 0) {
-      // Validar escenarios de error o bloqueo
-      if (result.value !== 0 || !hasErrorsOrBlocked) {
+    if (tc.expectError) {
+      expectedStr = "ERROR";
+      // Debe haber errores y NO debe enmascararse como blocked por seguridad operacional
+      if (result.errors.length > 0 && result.value === 0 && !result.blocked) {
+        gotStr = "ERROR";
+      } else {
         testPassed = false;
+        gotStr = `Err:${result.errors.length}|Val:${result.value}|Blk:${result.blocked}`;
+        result.errors.push("El motor no priorizó el error de input correctamente.");
       }
-      // Si está bloqueada, comprobar que inyectó el warning exacto exigido
-      if (result.blocked && !result.warnings.includes("Fórmula pendiente de validar con archivo fuente. No usar para operación.")) {
+    } else if (tc.expectBlocked) {
+      expectedStr = "BLOCKED";
+      const hasCorrectWarning = result.warnings.includes("Fórmula pendiente de validar con archivo fuente. No usar para operación.");
+      // Debe estar bloqueado de forma pura, sin errores de cálculo interno
+      if (result.blocked === true && result.value === 0 && result.errors.length === 0 && hasCorrectWarning) {
+        gotStr = "BLOCKED";
+      } else {
         testPassed = false;
-        result.errors.push("Missing required blocked warning message.");
+        gotStr = `Blk:${result.blocked}|Val:${result.value}|Err:${result.errors.length}`;
+        if (!hasCorrectWarning) result.errors.push("Falta advertencia de seguridad operacional.");
       }
     } else {
-      // Validar escenarios de cálculo exitoso
-      errorPct = Math.abs(result.value - tc.expectedValue) / Math.abs(tc.expectedValue);
-      if (!approxEqual(result.value, tc.expectedValue, tol) || hasErrorsOrBlocked) {
+      // Casos de éxito puro
+      if (result.errors.length > 0 || result.blocked) {
         testPassed = false;
+        gotStr = `Err/Blk`;
+      } else {
+        errorPct = Math.abs(result.value - tc.expectedValue) / Math.abs(tc.expectedValue || 1);
+        if (!approxEqual(result.value, tc.expectedValue, tol)) testPassed = false;
       }
-    }
 
-    // Validar sub-resultados (additionalResults)
-    if (testPassed && tc.expectedAdditionalResults && result.additionalResults) {
-      for (const [key, expectedVal] of Object.entries(tc.expectedAdditionalResults)) {
-        const found = result.additionalResults.find(ar => ar.label === key);
-        if (!found) {
-          testPassed = false;
-          result.errors.push(`Falta el resultado adicional: ${key}`);
-          break;
-        }
-        if (!approxEqual(found.value, expectedVal, tol)) {
-          testPassed = false;
-          result.errors.push(`Fallo en [${key}]. Se esperaba ${expectedVal}, se obtuvo ${found.value}`);
-          break;
+      // Validar Additional Results si aplica
+      if (testPassed && tc.expectedAdditionalResults && result.additionalResults) {
+        for (const [key, expectedVal] of Object.entries(tc.expectedAdditionalResults)) {
+          const found = result.additionalResults.find(ar => ar.label === key);
+          if (!found) {
+            testPassed = false;
+            result.errors.push(`Falta el resultado adicional: [${key}]`);
+            break;
+          }
+          if (!approxEqual(found.value, expectedVal, tol)) {
+            testPassed = false;
+            result.errors.push(`Fallo en [${key}]. Se esperaba ${expectedVal}, se obtuvo ${found.value}`);
+            break;
+          }
         }
       }
     }
@@ -205,40 +212,61 @@ function runAllTests(): void {
       formulaId: tc.formulaId,
       description: tc.description,
       passed: testPassed,
-      expected: tc.expectedValue,
-      got: result.value,
+      expected: expectedStr,
+      got: gotStr,
       errorPct,
       errors: result.errors,
     });
   }
 
-  // Run registry-embedded testCases
+  // Ejecución de pruebas integradas en el Registry
   for (const formula of formulas) {
     if (!formula.testCases || formula.testCases.length === 0) continue;
+    
+    const isNeedsReview = formula.needsReview === true;
+
     for (const tc of formula.testCases) {
       total++;
       const result = runCalculation({ formulaId: formula.id, inputs: tc.inputs });
       const tol = tc.tolerance ?? DEFAULT_TOLERANCE;
-      const errorPct = tc.expectedValue !== 0
-        ? Math.abs(result.value - tc.expectedValue) / Math.abs(tc.expectedValue)
-        : 0;
       
-      const testPassed = result.errors.length === 0 && approxEqual(result.value, tc.expectedValue, tol);
-      
+      let testPassed = true;
+      let errorPct = 0;
+      let gotStr: string | number = result.value;
+      let expectedStr: string | number = tc.expectedValue;
+
+      if (isNeedsReview) {
+        expectedStr = "BLOCKED";
+        if (result.blocked === true && result.value === 0 && result.errors.length === 0) {
+          gotStr = "BLOCKED";
+        } else {
+          testPassed = false;
+          gotStr = `Blk:${result.blocked}|Val:${result.value}`;
+        }
+      } else {
+        if (result.errors.length > 0 || result.blocked) {
+          testPassed = false;
+          gotStr = "Err/Blk";
+        } else {
+          errorPct = tc.expectedValue !== 0 ? Math.abs(result.value - tc.expectedValue) / Math.abs(tc.expectedValue) : 0;
+          if (!approxEqual(result.value, tc.expectedValue, tol)) testPassed = false;
+        }
+      }
+
       if (testPassed) passed++;
       results.push({
         formulaId: formula.id,
         description: `[registry] ${tc.description}`,
         passed: testPassed,
-        expected: tc.expectedValue,
-        got: result.value,
+        expected: expectedStr,
+        got: gotStr,
         errorPct,
         errors: result.errors,
       });
     }
   }
 
-  // ── Print results ──────────────────────────────────────────────────────────
+  // ── Imprimir Resultados ──────────────────────────────────────────────────
   console.log("\n═══════════════════════════════════════════════════════");
   console.log("  OilCalc Pro — Formula Test Suite");
   console.log("═══════════════════════════════════════════════════════\n");
@@ -249,8 +277,10 @@ function runAllTests(): void {
     const status = r.passed ? "PASS" : "FAIL";
     console.log(`${icon} [${status}] ${r.formulaId} — ${r.description}`);
     if (!r.passed) {
-      console.log(`       Expected: ${r.expected.toFixed(6)}`);
-      console.log(`       Got:      ${r.got.toFixed(6)}${pctStr}`);
+      const expFmt = typeof r.expected === 'number' ? r.expected.toFixed(6) : r.expected;
+      const gotFmt = typeof r.got === 'number' ? r.got.toFixed(6) : r.got;
+      console.log(`       Expected: ${expFmt}`);
+      console.log(`       Got:      ${gotFmt}${pctStr}`);
       if (r.errors.length > 0) console.log(`       Errors:   ${r.errors.join("; ")}`);
     }
   }

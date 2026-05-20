@@ -1,8 +1,7 @@
 // ═════════════════════════════════════════════════════════════════════════════
 // OilCalc Pro — Calculation Engine
 // Wraps formula execution with guards against NaN, Infinity, and exceptions.
-// Enforces the "blocked" state for formulas with needsReview=true that
-// explicitly return blocked:true in their calculate() function.
+// Prioritizes input validation errors over needsReview "blocked" state.
 // ═════════════════════════════════════════════════════════════════════════════
 
 import { getFormulaById, type CalculationResult } from "./formulaRegistry";
@@ -26,10 +25,11 @@ export function runCalculation(req: EngineRequest): CalculationResult {
       warnings: [],
       errors: [`Fórmula no encontrada: ${req.formulaId}`],
       timestamp: new Date().toISOString(),
+      blocked: false
     };
   }
 
-  // Guard: reject non-finite numeric inputs before entering calculate()
+  // 1. Sanitizar y validar inputs numéricos finitos
   const sanitizedInputs: Record<string, number | string> = {};
   for (const [key, val] of Object.entries(req.inputs)) {
     if (typeof val === "number") {
@@ -44,6 +44,7 @@ export function runCalculation(req: EngineRequest): CalculationResult {
           warnings: [],
           errors: [`El campo "${key}" contiene un valor no numérico o inválido.`],
           timestamp: new Date().toISOString(),
+          blocked: false
         };
       }
       sanitizedInputs[key] = val;
@@ -54,6 +55,7 @@ export function runCalculation(req: EngineRequest): CalculationResult {
 
   let partial: Omit<CalculationResult, "formulaId" | "formulaName" | "timestamp">;
 
+  // 2. Ejecutar la fórmula
   try {
     partial = formula.calculate(sanitizedInputs);
   } catch (err) {
@@ -68,27 +70,43 @@ export function runCalculation(req: EngineRequest): CalculationResult {
       warnings: [],
       errors: [`Error interno en el cálculo: ${message}`],
       timestamp: new Date().toISOString(),
+      blocked: false
     };
   }
 
-  // Guard: result value must be finite
+  // 3. Validar resultado finito
   if (!isFinite(partial.value) || isNaN(partial.value)) {
     return {
       ...partial,
       value: 0,
       formulaId: formula.id,
       formulaName: formula.name,
-      errors: [
-        ...partial.errors,
-        "El resultado no es un número válido (NaN o Infinito). Revisar inputs.",
-      ],
+      errors: [...(partial.errors || []), "El resultado no es un número válido (NaN o Infinito). Revisar inputs."],
+      timestamp: new Date().toISOString(),
+      blocked: false
+    };
+  }
+
+  // 4. LÓGICA DE PRIORIDAD: Errores vs Blocked
+  const hasErrors = partial.errors && partial.errors.length > 0;
+
+  if (hasErrors) {
+    // Si hay errores de validación (inputs inválidos), se devuelven. 
+    // No se enmascara con el estado "blocked".
+    return {
+      ...partial,
+      value: 0,
+      blocked: false,
+      formulaId: formula.id,
+      formulaName: formula.name,
       timestamp: new Date().toISOString(),
     };
   }
 
-  // Propagate blocked flag: if formula is needsReview OR calculate() set blocked,
-  // ensure blocked is true so the UI shows the warning overlay instead of the result.
-  const blocked = partial.blocked === true || formula.needsReview === true;
+  // Si NO hay errores, verificamos si está en needsReview
+  const isNeedsReview = formula.needsReview === true;
+  const isExplicitlyBlocked = partial.blocked === true;
+  const blocked = isNeedsReview || isExplicitlyBlocked;
 
   if (blocked) {
     const defaultWarning = "Fórmula pendiente de validar con archivo fuente. No usar para operación.";
@@ -110,7 +128,7 @@ export function runCalculation(req: EngineRequest): CalculationResult {
 
   return {
     ...partial,
-    blocked,
+    blocked: false,
     formulaId: formula.id,
     formulaName: formula.name,
     timestamp: new Date().toISOString(),
