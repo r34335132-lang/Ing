@@ -605,11 +605,11 @@ const bachecologico: Formula = {
   description: "Calcula presiones hidrostáticas y densidad requerida para diseño de bache ecológico en operaciones de CT/wireline.",
   icon: "water",
   inputs: [
-    { key: "di_tp_in", label: "DI de TP", unit: "in", type: "number", required: true, min: 0.001, placeholder: "Ej: 2.441" },
-    { key: "densidad_lodo_grcc", label: "Densidad del lodo", unit: "gr/cc", type: "number", required: true, min: 0.001, placeholder: "Ej: 1.05" },
-    { key: "volumen_tapon_m3", label: "Volumen del tapón", unit: "m³", type: "number", required: true, min: 0.001, placeholder: "Ej: 0.5" },
-    { key: "longitud_desplazar_m", label: "Longitud a desplazar", unit: "m", type: "number", required: true, min: 0, placeholder: "Ej: 100" },
-    { key: "profundidad_m", label: "Profundidad TVD", unit: "m", type: "number", required: true, min: 0.001, placeholder: "Ej: 1500" },
+    { key: "di_tp_in", label: "DI de TP", unit: "in", type: "number", required: true, min: 0.001, placeholder: "Ej: 2.602" },
+    { key: "densidad_lodo_grcc", label: "Densidad del lodo", unit: "gr/cc", type: "number", required: true, min: 0.001, placeholder: "Ej: 1.17" },
+    { key: "volumen_tapon_m3", label: "Volumen del tapón", unit: "m³", type: "number", required: true, min: 0.001, placeholder: "Ej: 6" },
+    { key: "longitud_desplazar_m", label: "Longitud a desplazar", unit: "m", type: "number", required: true, min: 0, placeholder: "Ej: 140" },
+    { key: "profundidad_m", label: "Profundidad TVD", unit: "m", type: "number", required: true, min: 0.001, placeholder: "Ej: 3927" },
   ],
   output: { label: "Densidad requerida (bache)", unit: "gr/cc" },
   formulaText: [
@@ -622,75 +622,65 @@ const bachecologico: Formula = {
     "ρ_req = P_faltante × 10 / L_tapón  [gr/cc]",
   ].join(" | "),
   references: ["Bache ecologico.xls"],
-  needsReview: false,
+  needsReview: false, // VALIDADA contra Excel real
   calculate(inputs) {
-    const di_tp = Number(inputs["di_tp_in"]);
-    const densidad = Number(inputs["densidad_lodo_grcc"]);
-    const vol_tapon = Number(inputs["volumen_tapon_m3"]);
-    const longitud_desplazar = Number(inputs["longitud_desplazar_m"]);
-    const profundidad = Number(inputs["profundidad_m"]);
+    const di_tp_in = Number(inputs["di_tp_in"]);
+    const densidad_lodo_grcc = Number(inputs["densidad_lodo_grcc"]);
+    const volumen_tapon_m3 = Number(inputs["volumen_tapon_m3"]);
+    const longitud_desplazar_m = Number(inputs["longitud_desplazar_m"]);
+    const profundidad_m = Number(inputs["profundidad_m"]);
     const errors: string[] = [];
     const warnings: string[] = [];
 
-    if (isNaN(di_tp) || di_tp <= 0) errors.push("DI de TP debe ser > 0.");
-    if (isNaN(densidad) || densidad <= 0) errors.push("Densidad del lodo debe ser > 0.");
-    if (isNaN(vol_tapon) || vol_tapon <= 0) errors.push("Volumen del tapón debe ser > 0.");
-    if (isNaN(longitud_desplazar) || longitud_desplazar < 0) errors.push("Longitud a desplazar debe ser >= 0.");
-    if (isNaN(profundidad) || profundidad <= 0) errors.push("Profundidad debe ser > 0.");
+    if (isNaN(di_tp_in) || di_tp_in <= 0) errors.push("DI de TP debe ser > 0.");
+    if (isNaN(densidad_lodo_grcc) || densidad_lodo_grcc <= 0) errors.push("Densidad del lodo debe ser > 0.");
+    if (isNaN(volumen_tapon_m3) || volumen_tapon_m3 <= 0) errors.push("Volumen del tapón debe ser > 0.");
+    if (isNaN(longitud_desplazar_m) || longitud_desplazar_m < 0) errors.push("Longitud a desplazar debe ser >= 0.");
+    if (isNaN(profundidad_m) || profundidad_m <= 0) errors.push("Profundidad debe ser > 0.");
+    
     if (errors.length > 0) return { value: 0, unit: "gr/cc", inputs, steps: [], warnings, errors };
 
-    // Paso 1: Capacidad TP
-    const cap_tp_m3_m = (di_tp * di_tp * 0.5067) / 1000;
+    // Fórmulas Matemáticas Directas sin Redondeos Prematuros (Para Precisión Excel)
+    const capacidad_tp_m3_m = (di_tp_in * di_tp_in * 0.5067) / 1000;
+    const longitud_tapon_m = volumen_tapon_m3 / capacidad_tp_m3_m;
 
-    // Paso 2: Longitud del tapón
-    const longitud_tapon_m = vol_tapon / cap_tp_m3_m;
-
-    // Validación: profundidad > longitud_tapón + longitud_desplazar
-    if (profundidad <= longitud_tapon_m + longitud_desplazar) {
-      errors.push(`Profundidad (${profundidad} m) debe ser mayor que longitud tapón + longitud desplazar (${(longitud_tapon_m + longitud_desplazar).toFixed(2)} m).`);
+    // Validación de profundidad
+    if (profundidad_m <= (longitud_tapon_m + longitud_desplazar_m)) {
+      errors.push(`Profundidad (${profundidad_m} m) debe ser mayor que longitud tapón + longitud desplazar (${(longitud_tapon_m + longitud_desplazar_m).toFixed(2)} m).`);
       return { value: 0, unit: "gr/cc", inputs, steps: [], warnings, errors };
     }
 
-    // Paso 3: Presión hidrostática total
-    const p_hid_total = (profundidad * densidad) / 10;
+    const presion_hidrostatica_total_kgcm2 = (profundidad_m * densidad_lodo_grcc) / 10;
+    const columna_equivalente_m = profundidad_m - longitud_tapon_m - longitud_desplazar_m;
+    const presion_hidrostatica_parcial_kgcm2 = (columna_equivalente_m * densidad_lodo_grcc) / 10;
+    const presion_faltante_kgcm2 = presion_hidrostatica_total_kgcm2 - presion_hidrostatica_parcial_kgcm2;
+    const densidad_requerida_grcc = (presion_faltante_kgcm2 * 10) / longitud_tapon_m;
 
-    // Paso 4: Columna equivalente
-    const col_equiv_m = profundidad - longitud_tapon_m - longitud_desplazar;
-
-    // Paso 5: Presión hidrostática parcial
-    const p_hid_parcial = (col_equiv_m * densidad) / 10;
-
-    // Paso 6: Presión faltante
-    const p_faltante = p_hid_total - p_hid_parcial;
-
-    // Paso 7: Densidad requerida
-    const densidad_req = (p_faltante * 10) / longitud_tapon_m;
-
-    if (densidad_req < densidad) warnings.push("Densidad requerida menor que densidad del lodo actual — verificar diseño del bache.");
-    if (densidad_req > 2.5) warnings.push("Densidad requerida muy alta (>2.5 gr/cc). Verificar datos de entrada.");
+    if (densidad_requerida_grcc < densidad_lodo_grcc) warnings.push("Densidad requerida menor que densidad del lodo actual — verificar diseño del bache.");
+    if (densidad_requerida_grcc > 2.5) warnings.push("Densidad requerida muy alta (>2.5 gr/cc). Verificar datos de entrada.");
 
     return {
-      value: Math.round(densidad_req * 10000) / 10000,
+      value: densidad_requerida_grcc,
       unit: "gr/cc",
       inputs,
       steps: [
-        `1. Cap. TP: DI² × 0.5067 / 1000 = ${di_tp}² × 0.5067 / 1000 = ${cap_tp_m3_m.toFixed(6)} m³/m`,
-        `2. Longitud tapón: ${vol_tapon} / ${cap_tp_m3_m.toFixed(6)} = ${longitud_tapon_m.toFixed(4)} m`,
-        `3. P.hid. total: ${profundidad} × ${densidad} / 10 = ${p_hid_total.toFixed(4)} kg/cm²`,
-        `4. Columna equivalente: ${profundidad} - ${longitud_tapon_m.toFixed(4)} - ${longitud_desplazar} = ${col_equiv_m.toFixed(4)} m`,
-        `5. P.hid. parcial: ${col_equiv_m.toFixed(4)} × ${densidad} / 10 = ${p_hid_parcial.toFixed(4)} kg/cm²`,
-        `6. P. faltante: ${p_hid_total.toFixed(4)} - ${p_hid_parcial.toFixed(4)} = ${p_faltante.toFixed(4)} kg/cm²`,
-        `7. Densidad requerida: ${p_faltante.toFixed(4)} × 10 / ${longitud_tapon_m.toFixed(4)} = ${densidad_req.toFixed(4)} gr/cc`,
+        `1. Cap. TP: ${di_tp_in}² × 0.5067 / 1000 = ${capacidad_tp_m3_m.toFixed(6)} m³/m`,
+        `2. Longitud tapón: ${volumen_tapon_m3} / ${capacidad_tp_m3_m.toFixed(6)} = ${longitud_tapon_m.toFixed(4)} m`,
+        `3. P.hid. total: ${profundidad_m} × ${densidad_lodo_grcc} / 10 = ${presion_hidrostatica_total_kgcm2.toFixed(4)} kg/cm²`,
+        `4. Columna eq.: ${profundidad_m} - ${longitud_tapon_m.toFixed(4)} - ${longitud_desplazar_m} = ${columna_equivalente_m.toFixed(4)} m`,
+        `5. P.hid. parcial: ${columna_equivalente_m.toFixed(4)} × ${densidad_lodo_grcc} / 10 = ${presion_hidrostatica_parcial_kgcm2.toFixed(4)} kg/cm²`,
+        `6. P. faltante: ${presion_hidrostatica_total_kgcm2.toFixed(4)} - ${presion_hidrostatica_parcial_kgcm2.toFixed(4)} = ${presion_faltante_kgcm2.toFixed(4)} kg/cm²`,
+        `7. Densidad requerida: ${presion_faltante_kgcm2.toFixed(4)} × 10 / ${longitud_tapon_m.toFixed(4)} = ${densidad_requerida_grcc.toFixed(4)} gr/cc`,
       ],
       warnings,
       errors: [],
       additionalResults: [
-        { label: "Capacidad TP", value: Math.round(cap_tp_m3_m * 1000000) / 1000000, unit: "m³/m" },
-        { label: "Longitud tapón", value: Math.round(longitud_tapon_m * 100) / 100, unit: "m" },
-        { label: "P. hid. total", value: Math.round(p_hid_total * 10000) / 10000, unit: "kg/cm²" },
-        { label: "P. hid. parcial", value: Math.round(p_hid_parcial * 10000) / 10000, unit: "kg/cm²" },
-        { label: "P. faltante", value: Math.round(p_faltante * 10000) / 10000, unit: "kg/cm²" },
-        { label: "Columna eq.", value: Math.round(col_equiv_m * 100) / 100, unit: "m" },
+        { label: "Capacidad TP", value: capacidad_tp_m3_m, unit: "m³/m" },
+        { label: "Longitud tapón", value: longitud_tapon_m, unit: "m" },
+        { label: "P. hid. total", value: presion_hidrostatica_total_kgcm2, unit: "kg/cm²" },
+        { label: "Columna eq.", value: columna_equivalente_m, unit: "m" },
+        { label: "P. hid. parcial", value: presion_hidrostatica_parcial_kgcm2, unit: "kg/cm²" },
+        { label: "P. faltante", value: presion_faltante_kgcm2, unit: "kg/cm²" },
       ],
     };
   },

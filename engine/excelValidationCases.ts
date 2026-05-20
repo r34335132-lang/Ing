@@ -14,8 +14,10 @@ export interface ExcelValidationCase {
   sourceCell: string;
   inputs: Record<string, number | string>;
   expectedValue: number | null;
+  additionalExpected?: Record<string, number>;
   tolerance: number;
   status: ValidationStatus;
+  notes?: string;
 }
 
 export const excelValidationCases: ExcelValidationCase[] = [
@@ -38,6 +40,31 @@ export const excelValidationCases: ExcelValidationCase[] = [
     expectedValue: 10733.7748994583,
     tolerance: 0.0001,
     status: "validated"
+  },
+  {
+    formulaId: "bache-ecologico",
+    sourceFile: "Bache ecologico.xls",
+    sourceSheet: "Bache ecologico",
+    sourceCell: "E30",
+    inputs: {
+      di_tp_in: 2.602,
+      densidad_lodo_grcc: 1.17,
+      volumen_tapon_m3: 6,
+      longitud_desplazar_m: 140,
+      profundidad_m: 3927
+    },
+    expectedValue: 1.26365438919564,
+    tolerance: 0.0001,
+    status: "validated",
+    notes: "Caso real extraído del Excel. Output principal: Dens. Requerida en gr/cc.",
+    additionalExpected: {
+      "Capacidad TP": 0.0034305637068,
+      "Longitud tapón": 1748.98369854112,
+      "P. hid. total": 459.459,
+      "Columna eq.": 2038.01630145888,
+      "P. hid. parcial": 238.447907270689,
+      "P. faltante": 221.011092729311
+    }
   },
   {
     formulaId: "hydraulics",

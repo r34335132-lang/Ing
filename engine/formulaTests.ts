@@ -99,16 +99,17 @@ function runAllTests(): void {
     },
     {
       formulaId: "bache-ecologico",
-      description: "Bache Ecológico completo con presiones (con Additional Results)",
-      inputs: { di_tp_in: 2.441, densidad_lodo_grcc: 1.25, volumen_tapon_m3: 3, longitud_desplazar_m: 100, profundidad_m: 1500 },
-      expectedValue: ( ((1500 * 1.25 / 10) - ((1500 - (3 / (Math.pow(2.441, 2) * 0.5067 / 1000)) - 100) * 1.25 / 10)) * 10 ) / (3 / (Math.pow(2.441, 2) * 0.5067 / 1000)),
+      description: "Validación real vs Bache ecologico.xls",
+      inputs: { di_tp_in: 2.602, densidad_lodo_grcc: 1.17, volumen_tapon_m3: 6, longitud_desplazar_m: 140, profundidad_m: 3927 },
+      expectedValue: 1.26365438919564,
+      tolerance: 0.0001,
       expectedAdditionalResults: {
-        "Cap. TP": Math.pow(2.441, 2) * 0.5067 / 1000,
-        "Longitud tapón": 3 / (Math.pow(2.441, 2) * 0.5067 / 1000),
-        "P. hid. total": 1500 * 1.25 / 10,
-        "Columna eq.": 1500 - (3 / (Math.pow(2.441, 2) * 0.5067 / 1000)) - 100,
-        "P. hid. parcial": (1500 - (3 / (Math.pow(2.441, 2) * 0.5067 / 1000)) - 100) * 1.25 / 10,
-        "P. faltante": (1500 * 1.25 / 10) - ((1500 - (3 / (Math.pow(2.441, 2) * 0.5067 / 1000)) - 100) * 1.25 / 10)
+        "Capacidad TP": 0.0034305637068,
+        "Longitud tapón": 1748.98369854112,
+        "P. hid. total": 459.459,
+        "Columna eq.": 2038.01630145888,
+        "P. hid. parcial": 238.447907270689,
+        "P. faltante": 221.011092729311
       }
     },
     {
@@ -151,7 +152,7 @@ function runAllTests(): void {
     {
       formulaId: "bache-ecologico",
       description: "ERROR: prof <= longitud_tapon + longitud_desplazar",
-      inputs: { di_tp_in: 2.441, densidad_lodo_grcc: 1.25, volumen_tapon_m3: 3, longitud_desplazar_m: 100, profundidad_m: 100 },
+      inputs: { di_tp_in: 2.602, densidad_lodo_grcc: 1.17, volumen_tapon_m3: 6, longitud_desplazar_m: 3000, profundidad_m: 3927 },
       expectedValue: 0,
       expectError: true
     }
