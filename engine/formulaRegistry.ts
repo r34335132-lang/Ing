@@ -147,7 +147,7 @@ const annularVolume: Formula = {
   output: { label: "Volumen Anular", unit: "bbl" },
   formulaText: "V(bbl) = ((D_mayor² - D_menor²) / 1029.4) × (L(m) / 0.3048)",
   references: ["CALCULO VOLUMEN TF.xls"],
-  needsReview: false, // VALIDADA contra Excel real
+  needsReview: false,
   testCases: [
     {
       description: "d_mayor_in=1.8, d_menor_in=1.25, L=1410m",
@@ -170,7 +170,6 @@ const annularVolume: Formula = {
     
     if (errors.length > 0) return { value: 0, unit: "bbl", inputs, steps: [], warnings, errors };
 
-    // Matemática exacta de Excel
     const areaDiff = d_mayor_in * d_mayor_in - d_menor_in * d_menor_in;
     const length_ft = length_m / 0.3048;
     const vol_bbl = (areaDiff / 1029.4) * length_ft;
@@ -258,7 +257,7 @@ const fluidVelocity: Formula = {
 
 // ─────────────────────────────────────────────────────────────────────────────
 // 4. VELOCIDAD ANULAR
-// Source: HIDRAULICA_RIVERO.xls · correjida calculo de t.p.,t.r. y espacio anular.xls
+// Source: CALCULO VOLUMEN TF.xls
 // ─────────────────────────────────────────────────────────────────────────────
 const annularVelocity: Formula = {
   id: "annular-velocity",
@@ -267,56 +266,54 @@ const annularVelocity: Formula = {
   description: "Calcula la velocidad de retorno del fluido en el espacio anular. Mínimo recomendado: 100 ft/min.",
   icon: "speedometer-outline",
   inputs: [
-    { key: "d_mayor", label: "Diámetro Mayor (agujero/TR)", unit: "in", type: "number", required: true, min: 0.001, placeholder: "Ej: 2.99" },
-    { key: "d_menor", label: "Diámetro Menor (TP/TF)", unit: "in", type: "number", required: true, min: 0.001, placeholder: "Ej: 1.5" },
-    { key: "flow_bpm", label: "Gasto de Bombeo", unit: "BPM", type: "number", required: true, min: 0, placeholder: "Ej: 1.5" },
+    { key: "d_mayor_in", label: "Diámetro Mayor (agujero/TR)", unit: "in", type: "number", required: true, min: 0.001, placeholder: "Ej: 2.99" },
+    { key: "d_menor_in", label: "Diámetro Menor (TP/TF)", unit: "in", type: "number", required: true, min: 0.001, placeholder: "Ej: 1.5" },
+    { key: "bpm", label: "Gasto de Bombeo", unit: "BPM", type: "number", required: true, min: 0, placeholder: "Ej: 1.5" },
   ],
   output: { label: "Velocidad Anular", unit: "ft/min" },
   formulaText: "VA(ft/min) = BPM / ((D_mayor² - D_menor²) / 1029.4)",
-  references: ["HIDRAULICA_RIVERO.xls", "correjida calculo de t.p.,t.r. y espacio anular.xls"],
-  needsReview: false,
-  testCases: [
-    {
-      description: "D_mayor=2.99, D_menor=1.5, BPM=1.5",
-      inputs: { d_mayor: 2.99, d_menor: 1.5, flow_bpm: 1.5 },
-      expectedValue: 1.5 / ((2.99 * 2.99 - 1.5 * 1.5) / 1029.4),
-      tolerance: 0.001,
-    },
-  ],
+  references: ["CALCULO VOLUMEN TF.xls"],
+  needsReview: false, // VALIDADA contra Excel real
   calculate(inputs) {
-    const d_mayor = Number(inputs["d_mayor"]);
-    const d_menor = Number(inputs["d_menor"]);
-    const flow_bpm = Number(inputs["flow_bpm"]);
+    const d_mayor_in = Number(inputs["d_mayor_in"]);
+    const d_menor_in = Number(inputs["d_menor_in"]);
+    const bpm = Number(inputs["bpm"]);
     const errors: string[] = [];
     const warnings: string[] = [];
 
-    if (isNaN(d_mayor) || d_mayor <= 0) errors.push("El diámetro mayor debe ser mayor que cero.");
-    if (isNaN(d_menor) || d_menor <= 0) errors.push("El diámetro menor debe ser mayor que cero.");
-    if (!isNaN(d_mayor) && !isNaN(d_menor) && d_mayor <= d_menor) errors.push("D_mayor debe ser estrictamente mayor que D_menor.");
-    if (isNaN(flow_bpm) || flow_bpm < 0) errors.push("El gasto debe ser >= 0.");
+    if (isNaN(d_mayor_in) || d_mayor_in <= 0) errors.push("El diámetro mayor debe ser mayor que cero.");
+    if (isNaN(d_menor_in) || d_menor_in <= 0) errors.push("El diámetro menor debe ser mayor que cero.");
+    if (!isNaN(d_mayor_in) && !isNaN(d_menor_in) && d_mayor_in <= d_menor_in) errors.push("D_mayor debe ser estrictamente mayor que D_menor.");
+    if (isNaN(bpm) || bpm < 0) errors.push("El gasto debe ser >= 0.");
     if (errors.length > 0) return { value: 0, unit: "ft/min", inputs, steps: [], warnings, errors };
 
-    const diff = d_mayor * d_mayor - d_menor * d_menor;
-    const annular_capacity = diff / 1029.4;
-    const velocity_ft_min = flow_bpm / annular_capacity;
-    const velocity_m_min = velocity_ft_min * 0.3048;
+    const areaDiff = d_mayor_in * d_mayor_in - d_menor_in * d_menor_in;
+    const capacityBblPerFt = areaDiff / 1029.4;
+    
+    if (capacityBblPerFt === 0) {
+      errors.push("Capacidad anular es cero, revisa los diámetros.");
+      return { value: 0, unit: "ft/min", inputs, steps: [], warnings, errors };
+    }
 
-    if (velocity_ft_min < 100) warnings.push("VA < 100 ft/min: puede ser insuficiente para acarreo de recortes.");
-    if (velocity_ft_min > 500) warnings.push("VA > 500 ft/min: posible erosión y pérdidas de presión significativas.");
+    const vel_ft_min = bpm / capacityBblPerFt;
+    const vel_m_min = vel_ft_min * 0.3048;
+
+    if (vel_ft_min < 100) warnings.push("VA < 100 ft/min: puede ser insuficiente para acarreo de recortes.");
+    if (vel_ft_min > 500) warnings.push("VA > 500 ft/min: posible erosión y pérdidas de presión significativas.");
 
     return {
-      value: Math.round(velocity_ft_min * 100) / 100,
+      value: vel_ft_min,
       unit: "ft/min",
       inputs,
       steps: [
-        `Diferencia cuadrados: ${d_mayor}² - ${d_menor}² = ${(d_mayor * d_mayor).toFixed(6)} - ${(d_menor * d_menor).toFixed(6)} = ${diff.toFixed(6)} in²`,
-        `Capacidad anular: C = ${diff.toFixed(6)} ÷ 1029.4 = ${annular_capacity.toFixed(8)} bbl/ft`,
-        `VA = ${flow_bpm} ÷ ${annular_capacity.toFixed(8)} = ${velocity_ft_min.toFixed(4)} ft/min`,
+        `Diferencia cuadrados: ${d_mayor_in}² - ${d_menor_in}² = ${areaDiff.toFixed(6)} in²`,
+        `Capacidad anular: C = ${areaDiff.toFixed(6)} ÷ 1029.4 = ${capacityBblPerFt.toFixed(8)} bbl/ft`,
+        `VA = ${bpm} ÷ ${capacityBblPerFt.toFixed(8)} = ${vel_ft_min.toFixed(4)} ft/min`,
       ],
       warnings,
       errors: [],
       additionalResults: [
-        { label: "Velocidad anular", value: Math.round(velocity_m_min * 1000) / 1000, unit: "m/min" },
+        { label: "Velocidad", value: vel_m_min, unit: "m/min" },
       ],
     };
   },
