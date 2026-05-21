@@ -1,12 +1,13 @@
 // ═════════════════════════════════════════════════════════════════════════════
 // OilCalc Pro — Formula Test Suite
 // Run with: pnpm test:formulas
-// All expected values calculated from source Excel formulas.
-// Tolerance: 0.1% relative default, configurable per test case.
+// Expected values come from source Excel formulas or controlled engine cases.
+// Default tolerance: 0.1% relative, configurable per test.
 // ═════════════════════════════════════════════════════════════════════════════
 
 import { runCalculation } from "./calculationEngine";
 import { getAllFormulas } from "./formulaRegistry";
+import { convertUnit } from "./units";
 
 interface TestResult {
   formulaId: string;
@@ -16,6 +17,17 @@ interface TestResult {
   got: number | string;
   errorPct: number;
   errors: string[];
+}
+
+interface InlineTestCase {
+  formulaId: string;
+  description: string;
+  inputs: Record<string, number | string>;
+  expectedValue: number;
+  expectedAdditionalResults?: Record<string, number>;
+  tolerance?: number;
+  expectError?: boolean;
+  expectBlocked?: boolean;
 }
 
 const DEFAULT_TOLERANCE = 0.001; // 0.1%
@@ -30,6 +42,29 @@ function approxEqual(
   return Math.abs(actual - expected) / Math.abs(expected) <= tolerance;
 }
 
+function pushResult(
+  results: TestResult[],
+  params: {
+    formulaId: string;
+    description: string;
+    passed: boolean;
+    expected: number | string;
+    got: number | string;
+    errorPct?: number;
+    errors?: string[];
+  }
+): void {
+  results.push({
+    formulaId: params.formulaId,
+    description: params.description,
+    passed: params.passed,
+    expected: params.expected,
+    got: params.got,
+    errorPct: params.errorPct ?? 0,
+    errors: params.errors ?? [],
+  });
+}
+
 function runAllTests(): void {
   const results: TestResult[] = [];
   const formulas = getAllFormulas();
@@ -37,17 +72,8 @@ function runAllTests(): void {
   let total = 0;
   let passed = 0;
 
-  const inlineTests: Array<{
-    formulaId: string;
-    description: string;
-    inputs: Record<string, number | string>;
-    expectedValue: number;
-    expectedAdditionalResults?: Record<string, number>;
-    tolerance?: number;
-    expectError?: boolean;
-    expectBlocked?: boolean;
-  }> = [
-    // ── Tests de Cálculo Exitoso ───────────────────────────────────────────
+  const inlineTests: InlineTestCase[] = [
+    // ── Casos exitosos validados / controlados ─────────────────────────────
 
     {
       formulaId: "pipe-volume",
@@ -102,7 +128,8 @@ function runAllTests(): void {
       formulaId: "tf-metal-displacement",
       description: "OD=1.5in, ID=1.321in, L=1800m",
       inputs: { od_tf_in: 1.5, id_tf_in: 1.321, length_m: 1800 },
-      expectedValue: ((1.5 * 1.5 - 1.321 * 1.321) / 1029.4) * (1800 / 0.3048),
+      expectedValue:
+        ((1.5 * 1.5 - 1.321 * 1.321) / 1029.4) * (1800 / 0.3048),
       tolerance: 0.0001,
     },
 
@@ -163,7 +190,7 @@ function runAllTests(): void {
       },
     },
 
-    // ── Tests de Bloqueo por Revisión ─────────────────────────────────────
+    // ── Bloqueo por revisión técnica ──────────────────────────────────────
 
     {
       formulaId: "hydraulics",
@@ -181,7 +208,7 @@ function runAllTests(): void {
       expectBlocked: true,
     },
 
-    // ── Tests de Errores de Input ─────────────────────────────────────────
+    // ── Errores de input ──────────────────────────────────────────────────
 
     {
       formulaId: "annular-volume",
@@ -249,25 +276,26 @@ function runAllTests(): void {
       inputs: tc.inputs,
     });
 
-    const tol = tc.tolerance ?? DEFAULT_TOLERANCE;
+    const tolerance = tc.tolerance ?? DEFAULT_TOLERANCE;
+    const errorsForReport = [...result.errors];
 
     let testPassed = true;
     let errorPct = 0;
-    let gotStr: string | number = result.value;
-    let expectedStr: string | number = tc.expectedValue;
+    let got: string | number = result.value;
+    let expected: string | number = tc.expectedValue;
 
     if (tc.expectError) {
-      expectedStr = "ERROR";
+      expected = "ERROR";
 
       if (result.errors.length > 0 && result.value === 0 && !result.blocked) {
-        gotStr = "ERROR";
+        got = "ERROR";
       } else {
         testPassed = false;
-        gotStr = `Err:${result.errors.length}|Val:${result.value}|Blk:${result.blocked}`;
-        result.errors.push("El motor no priorizó el error de input correctamente.");
+        got = `Err:${result.errors.length}|Val:${result.value}|Blk:${result.blocked}`;
+        errorsForReport.push("El motor no priorizó el error de input correctamente.");
       }
     } else if (tc.expectBlocked) {
-      expectedStr = "BLOCKED";
+      expected = "BLOCKED";
 
       const hasCorrectWarning = result.warnings.includes(
         "Fórmula pendiente de validar con archivo fuente. No usar para operación."
@@ -279,25 +307,25 @@ function runAllTests(): void {
         result.errors.length === 0 &&
         hasCorrectWarning
       ) {
-        gotStr = "BLOCKED";
+        got = "BLOCKED";
       } else {
         testPassed = false;
-        gotStr = `Blk:${result.blocked}|Val:${result.value}|Err:${result.errors.length}`;
+        got = `Blk:${result.blocked}|Val:${result.value}|Err:${result.errors.length}`;
 
         if (!hasCorrectWarning) {
-          result.errors.push("Falta advertencia de seguridad operacional.");
+          errorsForReport.push("Falta advertencia de seguridad operacional.");
         }
       }
     } else {
       if (result.errors.length > 0 || result.blocked) {
         testPassed = false;
-        gotStr = `Err/Blk`;
+        got = "Err/Blk";
       } else {
         errorPct =
           Math.abs(result.value - tc.expectedValue) /
           Math.abs(tc.expectedValue || 1);
 
-        if (!approxEqual(result.value, tc.expectedValue, tol)) {
+        if (!approxEqual(result.value, tc.expectedValue, tolerance)) {
           testPassed = false;
         }
       }
@@ -305,31 +333,31 @@ function runAllTests(): void {
       if (testPassed && tc.expectedAdditionalResults) {
         if (!result.additionalResults) {
           testPassed = false;
-          result.errors.push("Faltan additionalResults.");
+          errorsForReport.push("Faltan additionalResults.");
         } else {
-          for (const [key, expectedVal] of Object.entries(
+          for (const [key, expectedValue] of Object.entries(
             tc.expectedAdditionalResults
           )) {
             const [expectedLabel, expectedUnit] = key.split("|");
 
             const found = result.additionalResults.find(
-              (ar) =>
-                ar.label === expectedLabel &&
-                (!expectedUnit || ar.unit === expectedUnit)
+              (item) =>
+                item.label === expectedLabel &&
+                (!expectedUnit || item.unit === expectedUnit)
             );
 
             if (!found) {
               testPassed = false;
-              result.errors.push(
+              errorsForReport.push(
                 `Falta resultado adicional: label=[${expectedLabel}] unit=[${expectedUnit}]`
               );
               break;
             }
 
-            if (!approxEqual(found.value, expectedVal, tol)) {
+            if (!approxEqual(found.value, expectedValue, tolerance)) {
               testPassed = false;
-              result.errors.push(
-                `Fallo en additionalResult [${expectedLabel}|${expectedUnit}]. Esperado ${expectedVal}, obtenido ${found.value}`
+              errorsForReport.push(
+                `Fallo en additionalResult [${expectedLabel}|${expectedUnit}]. Esperado ${expectedValue}, obtenido ${found.value}`
               );
               break;
             }
@@ -340,18 +368,18 @@ function runAllTests(): void {
 
     if (testPassed) passed++;
 
-    results.push({
+    pushResult(results, {
       formulaId: tc.formulaId,
       description: tc.description,
       passed: testPassed,
-      expected: expectedStr,
-      got: gotStr,
+      expected,
+      got,
       errorPct,
-      errors: result.errors,
+      errors: errorsForReport,
     });
   }
 
-  // ── Tests integrados en el Registry ─────────────────────────────────────
+  // ── Tests definidos dentro del registry ─────────────────────────────────
 
   for (const formula of formulas) {
     if (!formula.testCases || formula.testCases.length === 0) continue;
@@ -366,227 +394,249 @@ function runAllTests(): void {
         inputs: tc.inputs,
       });
 
-      const tol = tc.tolerance ?? DEFAULT_TOLERANCE;
+      const tolerance = tc.tolerance ?? DEFAULT_TOLERANCE;
+      const errorsForReport = [...result.errors];
 
       let testPassed = true;
       let errorPct = 0;
-      let gotStr: string | number = result.value;
-      let expectedStr: string | number = tc.expectedValue;
+      let got: string | number = result.value;
+      let expected: string | number = tc.expectedValue;
 
       if (isNeedsReview) {
-        expectedStr = "BLOCKED";
+        expected = "BLOCKED";
 
         if (
           result.blocked === true &&
           result.value === 0 &&
           result.errors.length === 0
         ) {
-          gotStr = "BLOCKED";
+          got = "BLOCKED";
         } else {
           testPassed = false;
-          gotStr = `Blk:${result.blocked}|Val:${result.value}`;
+          got = `Blk:${result.blocked}|Val:${result.value}`;
         }
+      } else if (result.errors.length > 0 || result.blocked) {
+        testPassed = false;
+        got = "Err/Blk";
       } else {
-        if (result.errors.length > 0 || result.blocked) {
-          testPassed = false;
-          gotStr = "Err/Blk";
-        } else {
-          errorPct =
-            tc.expectedValue !== 0
-              ? Math.abs(result.value - tc.expectedValue) /
-                Math.abs(tc.expectedValue)
-              : 0;
+        errorPct =
+          tc.expectedValue !== 0
+            ? Math.abs(result.value - tc.expectedValue) /
+              Math.abs(tc.expectedValue)
+            : 0;
 
-          if (!approxEqual(result.value, tc.expectedValue, tol)) {
-            testPassed = false;
-          }
+        if (!approxEqual(result.value, tc.expectedValue, tolerance)) {
+          testPassed = false;
         }
       }
 
       if (testPassed) passed++;
 
-      results.push({
+      pushResult(results, {
         formulaId: formula.id,
         description: `[registry] ${tc.description}`,
         passed: testPassed,
-        expected: expectedStr,
-        got: gotStr,
+        expected,
+        got,
         errorPct,
-        errors: result.errors,
+        errors: errorsForReport,
       });
     }
   }
 
+  printFormulaTestResults(results, total, passed);
+}
+
+function printFormulaTestResults(
+  results: TestResult[],
+  total: number,
+  passed: number
+): void {
   console.log("\n═══════════════════════════════════════════════════════");
   console.log("  OilCalc Pro — Formula Test Suite");
   console.log("═══════════════════════════════════════════════════════\n");
 
-  for (const r of results) {
-    const icon = r.passed ? "✓" : "✗";
-    const pctStr =
-      r.errorPct > 0 ? ` [err: ${(r.errorPct * 100).toFixed(4)}%]` : "";
-    const status = r.passed ? "PASS" : "FAIL";
+  for (const result of results) {
+    const icon = result.passed ? "✓" : "✗";
+    const status = result.passed ? "PASS" : "FAIL";
+    const errorPctText =
+      result.errorPct > 0
+        ? ` [err: ${(result.errorPct * 100).toFixed(4)}%]`
+        : "";
 
-    console.log(`${icon} [${status}] ${r.formulaId} — ${r.description}`);
+    console.log(
+      `${icon} [${status}] ${result.formulaId} — ${result.description}`
+    );
 
-    if (!r.passed) {
-      const expFmt =
-        typeof r.expected === "number" ? r.expected.toFixed(6) : r.expected;
-      const gotFmt = typeof r.got === "number" ? r.got.toFixed(6) : r.got;
+    if (!result.passed) {
+      const expected =
+        typeof result.expected === "number"
+          ? result.expected.toFixed(6)
+          : result.expected;
 
-      console.log(`       Expected: ${expFmt}`);
-      console.log(`       Got:      ${gotFmt}${pctStr}`);
+      const got =
+        typeof result.got === "number" ? result.got.toFixed(6) : result.got;
 
-      if (r.errors.length > 0) {
-        console.log(`       Errors:   ${r.errors.join("; ")}`);
+      console.log(`       Expected: ${expected}`);
+      console.log(`       Got:      ${got}${errorPctText}`);
+
+      if (result.errors.length > 0) {
+        console.log(`       Errors:   ${result.errors.join("; ")}`);
       }
     }
   }
 
+  const failed = total - passed;
+
   console.log("\n─────────────────────────────────────────────────────");
-  console.log(`  Total: ${total}  |  Passed: ${passed}  |  Failed: ${total - passed}`);
-
-  const allPassed = passed === total;
-
+  console.log(`  Total: ${total}  |  Passed: ${passed}  |  Failed: ${failed}`);
   console.log(
-    `  Result: ${allPassed ? "ALL TESTS PASSED ✓" : `${total - passed} FAILURES ✗`}`
+    `  Result: ${failed === 0 ? "ALL TESTS PASSED ✓" : `${failed} FAILURES ✗`}`
   );
   console.log("═══════════════════════════════════════════════════════\n");
 
-  if (!allPassed) process.exit(1);
+  if (failed > 0) {
+    throw new Error(`${failed} formula test(s) failed.`);
+  }
 }
 
 function runUnitTests(): void {
   console.log("─── Unit Conversion Tests ───────────────────────────\n");
 
-  // eslint-disable-next-line @typescript-eslint/no-var-requires
-  const { convertUnit } = require("./units");
-
   const convTests = [
     {
       from: "ft",
       to: "m",
-      cat: "length",
-      val: 1,
+      category: "length",
+      value: 1,
       expected: 0.3048,
-      desc: "1 ft → 0.3048 m",
+      description: "1 ft → 0.3048 m",
     },
     {
       from: "in",
       to: "mm",
-      cat: "length",
-      val: 1,
+      category: "length",
+      value: 1,
       expected: 25.4,
-      desc: "1 in → 25.4 mm",
+      description: "1 in → 25.4 mm",
     },
     {
       from: "bbl",
       to: "L",
-      cat: "volume",
-      val: 1,
+      category: "volume",
+      value: 1,
       expected: 158.987,
-      desc: "1 bbl → 158.987 L",
+      description: "1 bbl → 158.987 L",
     },
     {
       from: "bbl",
       to: "m3",
-      cat: "volume",
-      val: 1,
+      category: "volume",
+      value: 1,
       expected: 0.158987,
-      desc: "1 bbl → 0.158987 m³",
+      description: "1 bbl → 0.158987 m³",
     },
     {
       from: "psi",
       to: "bar",
-      cat: "pressure",
-      val: 14.5038,
+      category: "pressure",
+      value: 14.5038,
       expected: 1.0,
-      desc: "14.5038 psi → 1 bar",
+      description: "14.5038 psi → 1 bar",
     },
     {
       from: "C",
       to: "F",
-      cat: "temperature",
-      val: 0,
+      category: "temperature",
+      value: 0,
       expected: 32.0,
-      desc: "0°C → 32°F",
+      description: "0°C → 32°F",
     },
     {
       from: "C",
       to: "F",
-      cat: "temperature",
-      val: 100,
+      category: "temperature",
+      value: 100,
       expected: 212.0,
-      desc: "100°C → 212°F",
+      description: "100°C → 212°F",
     },
     {
       from: "C",
       to: "K",
-      cat: "temperature",
-      val: 0,
+      category: "temperature",
+      value: 0,
       expected: 273.15,
-      desc: "0°C → 273.15 K",
+      description: "0°C → 273.15 K",
     },
     {
       from: "ppg",
       to: "g_cc",
-      cat: "density",
-      val: 8.345,
+      category: "density",
+      value: 8.345,
       expected: 1.0,
-      desc: "8.345 ppg → 1.0 g/cc",
+      description: "8.345 ppg → 1.0 g/cc",
     },
     {
       from: "BPM",
       to: "GPM",
-      cat: "flow",
-      val: 1,
+      category: "flow",
+      value: 1,
       expected: 42.0,
-      desc: "1 BPM → 42 GPM",
+      description: "1 BPM → 42 GPM",
     },
     {
       from: "ft_min",
       to: "m_min",
-      cat: "velocity",
-      val: 100,
+      category: "velocity",
+      value: 100,
       expected: 30.48,
-      desc: "100 ft/min → 30.48 m/min",
+      description: "100 ft/min → 30.48 m/min",
     },
     {
       from: "cP",
       to: "Pa_s",
-      cat: "viscosity",
-      val: 1,
+      category: "viscosity",
+      value: 1,
       expected: 0.001,
-      desc: "1 cP → 0.001 Pa·s",
+      description: "1 cP → 0.001 Pa·s",
     },
   ];
 
   let total = 0;
   let passed = 0;
 
-  for (const t of convTests) {
+  for (const test of convTests) {
     total++;
 
     try {
-      const got = convertUnit(t.val, t.from, t.to, t.cat);
-      const testPassed = approxEqual(got, t.expected, 0.001);
+      const got = convertUnit(
+        test.value,
+        test.from,
+        test.to,
+        test.category
+      );
+
+      const testPassed = approxEqual(got, test.expected, 0.001);
 
       if (testPassed) passed++;
 
-      const errPct = Math.abs(got - t.expected) / (Math.abs(t.expected) || 1);
+      const errorPct =
+        Math.abs(got - test.expected) / (Math.abs(test.expected) || 1);
 
       console.log(
-        `${testPassed ? "✓" : "✗"} ${t.desc} → got ${got.toFixed(6)} (err ${(errPct * 100).toFixed(3)}%)`
+        `${testPassed ? "✓" : "✗"} ${test.description} → got ${got.toFixed(
+          6
+        )} (err ${(errorPct * 100).toFixed(3)}%)`
       );
     } catch (error) {
-      console.log(`✗ ${t.desc} → ERROR: ${error}`);
+      console.log(`✗ ${test.description} → ERROR: ${error}`);
     }
   }
 
   console.log(`\n  Unit conversions: ${passed}/${total}\n`);
 
   if (passed !== total) {
-    process.exit(1);
+    throw new Error(`${total - passed} unit conversion test(s) failed.`);
   }
 }
 
