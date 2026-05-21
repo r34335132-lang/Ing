@@ -32,6 +32,25 @@ export const excelValidationCases: ExcelValidationCase[] = [
     status: "validated"
   },
   {
+    formulaId: "annular-volume",
+    sourceFile: "CALCULO VOLUMEN TF.xls",
+    sourceSheet: "VOLUMENES",
+    sourceCell: "G19",
+    inputs: {
+      d_mayor_in: 1.8,
+      d_menor_in: 1.25,
+      length_m: 1410
+    },
+    expectedValue: 7.53845791983405,
+    tolerance: 0.0001,
+    status: "validated",
+    notes: "Caso real extraído del Excel. Volumen anular usando diferencia de diámetros cuadrados.",
+    additionalExpected: {
+      vol_liters: 1198.28893085225,
+      vol_m3: 1.19828893085225
+    }
+  },
+  {
     formulaId: "coiled-tubing",
     sourceFile: "CoilTubingReelCapacitycalculator.xls",
     sourceSheet: "Coillength Program",

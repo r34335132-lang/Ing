@@ -54,9 +54,14 @@ function runAllTests(): void {
     },
     {
       formulaId: "annular-volume",
-      description: "D_mayor=1.8, D_menor=1.25, L=1410m",
-      inputs: { d_mayor: 1.8, d_menor: 1.25, length_m: 1410 },
-      expectedValue: ((1.8 * 1.8 - 1.25 * 1.25) / 1029.4) * (1410 / 0.3048),
+      description: "D_mayor_in=1.8, D_menor_in=1.25, L=1410m (Valor real CALCULO VOLUMEN TF.xls)",
+      inputs: { d_mayor_in: 1.8, d_menor_in: 1.25, length_m: 1410 },
+      expectedValue: 7.53845791983405,
+      tolerance: 0.0001,
+      expectedAdditionalResults: {
+        "Volumen|L": 1198.28893085225,
+        "Volumen|m³": 1.19828893085225
+      }
     },
     {
       formulaId: "fluid-velocity",
@@ -89,12 +94,12 @@ function runAllTests(): void {
       expectedValue: 1.26365438919564,
       tolerance: 0.0001,
       expectedAdditionalResults: {
-        "Capacidad TP": 0.0034305637068,
-        "Longitud tapón": 1748.98369854112,
-        "P. hid. total": 459.459,
-        "Columna eq.": 2038.01630145888,
-        "P. hid. parcial": 238.447907270689,
-        "P. faltante": 221.011092729311
+        "Capacidad TP|m³/m": 0.0034305637068,
+        "Longitud tapón|m": 1748.98369854112,
+        "P. hid. total|kg/cm²": 459.459,
+        "Columna eq.|m": 2038.01630145888,
+        "P. hid. parcial|kg/cm²": 238.447907270689,
+        "P. faltante|kg/cm²": 221.011092729311
       }
     },
     {
@@ -104,9 +109,9 @@ function runAllTests(): void {
       expectedValue: 10733.7748994583,
       tolerance: 0.0001,
       expectedAdditionalResults: {
-        "Longitud": 3271.25419175449,
-        "Capas verticales": 10,
-        "Vueltas horizontales": 50
+        "Longitud|m": 3271.25419175449,
+        "Capas verticales|capas": 10,
+        "Vueltas horizontales|vueltas": 50
       }
     },
     {
@@ -116,7 +121,7 @@ function runAllTests(): void {
       expectedValue: 14.5375021194588,
       tolerance: 0.0001,
       expectedAdditionalResults: {
-        "Velocidad": 4.43103064601104
+        "Velocidad|m/min": 4.43103064601104
       }
     },
 
@@ -132,8 +137,8 @@ function runAllTests(): void {
     // ── Tests de Errores de Input (Rechazo Fuerte) ─────────────────────────
     {
       formulaId: "annular-volume",
-      description: "ERROR: D_mayor <= D_menor",
-      inputs: { d_mayor: 2, d_menor: 3, length_m: 100 },
+      description: "ERROR: d_mayor_in <= d_menor_in",
+      inputs: { d_mayor_in: 1.25, d_menor_in: 1.8, length_m: 100 },
       expectedValue: 0,
       expectError: true
     },
@@ -202,18 +207,19 @@ function runAllTests(): void {
         if (!approxEqual(result.value, tc.expectedValue, tol)) testPassed = false;
       }
 
-      // Validar Additional Results si aplica
+      // Validar Additional Results si aplica usando separador "label|unit" o solo "label"
       if (testPassed && tc.expectedAdditionalResults && result.additionalResults) {
         for (const [key, expectedVal] of Object.entries(tc.expectedAdditionalResults)) {
-          const found = result.additionalResults.find(ar => ar.label === key);
+          const [lbl, un] = key.split("|");
+          const found = result.additionalResults.find(ar => ar.label === lbl && (!un || ar.unit === un));
           if (!found) {
             testPassed = false;
-            result.errors.push(`Falta el resultado adicional: [${key}]`);
+            result.errors.push(`Falta el resultado adicional: [${lbl}] unit:[${un}]`);
             break;
           }
           if (!approxEqual(found.value, expectedVal, tol)) {
             testPassed = false;
-            result.errors.push(`Fallo en [${key}]. Se esperaba ${expectedVal}, se obtuvo ${found.value}`);
+            result.errors.push(`Fallo en [${lbl}]. Se esperaba ${expectedVal}, se obtuvo ${found.value}`);
             break;
           }
         }
