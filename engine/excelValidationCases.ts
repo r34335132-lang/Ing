@@ -85,6 +85,21 @@ export const excelValidationCases: ExcelValidationCase[] = [
     }
   },
   {
+    formulaId: "tf-displacement",
+    sourceFile: "CALCULO VOLUMEN TF.xls",
+    sourceSheet: "VOLUMENES",
+    sourceCell: "G34",
+    inputs: { od_tf_in: 1.5, length_m: 1800 },
+    expectedValue: 12.8639051470706,
+    tolerance: 0.0001,
+    status: "validated",
+    notes: "Validado contra Excel. Usa OD de TF como desplazamiento externo, no capacidad interna.",
+    additionalExpected: {
+      "Litros": 2045.32116983534,
+      "m³": 2.04532116983534
+    }
+  },
+  {
     formulaId: "tf-metal-displacement",
     sourceFile: "CALCULO VOLUMEN TF.xls",
     sourceSheet: "VOLUMENES",

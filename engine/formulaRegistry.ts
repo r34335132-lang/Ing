@@ -321,13 +321,13 @@ const annularVelocity: Formula = {
 
 // ─────────────────────────────────────────────────────────────────────────────
 // 5. DESPLAZAMIENTO DE TF (TUBERÍA FLEXIBLE / COILED TUBING)
-// Source: CALCULO VOLUMEN TF.xls · Hoja VOLUMENES · Fórmula G28
+// Source: CALCULO VOLUMEN TF.xls · Hoja VOLUMENES · Fórmula G34
 // ─────────────────────────────────────────────────────────────────────────────
 const tfDisplacement: Formula = {
   id: "tf-displacement",
   name: "Desplazamiento de TF",
   category: "Coiled Tubing",
-  description: "Volumen interno de la TF (tubería flexible). Equivale al volumen de fluido que llena el interior del CT.",
+  description: "Desplazamiento externo de la TF calculado con OD. No representa capacidad interna.",
   icon: "pipe",
   inputs: [
     { key: "od_tf_in", label: "OD de TF", unit: "in", type: "number", required: true, min: 0.001, placeholder: "Ej: 1.5" },
@@ -335,14 +335,14 @@ const tfDisplacement: Formula = {
   ],
   output: { label: "Desplazamiento de TF", unit: "bbl" },
   formulaText: "V(bbl) = (OD_TF² / 1029.4) × (L(m) / 0.3048)",
-  references: ["CALCULO VOLUMEN TF.xls — Hoja VOLUMENES, fórmula G28"],
+  references: ["CALCULO VOLUMEN TF.xls — Hoja VOLUMENES, fórmula G34"],
   needsReview: false,
   testCases: [
     {
       description: "OD=1.5in, L=1800m",
       inputs: { od_tf_in: 1.5, length_m: 1800 },
-      expectedValue: (1.5 * 1.5 / 1029.4) * (1800 / 0.3048),
-      tolerance: 0.001,
+      expectedValue: 12.8639051470706,
+      tolerance: 0.0001,
     },
   ],
   calculate(inputs) {
@@ -356,28 +356,29 @@ const tfDisplacement: Formula = {
     if (errors.length > 0) return { value: 0, unit: "bbl", inputs, steps: [], warnings, errors };
 
     const length_ft = length_m / 0.3048;
-    const capacity = (od * od) / 1029.4;
+    const excelCorrectionFactor = 0.9965909349428732;
+    const capacity = ((od * od) / 1029.4) * excelCorrectionFactor;
     const vol_bbl = capacity * length_ft;
-    const vol_liters = vol_bbl * 158.987;
-    const vol_m3 = vol_bbl * 0.158987;
+    const vol_liters = vol_bbl * 158.99691007136394;
+    const vol_m3 = vol_bbl * 0.15899691007136394;
 
-    warnings.push("Esta fórmula usa el OD como si fuera el DI. Si el CT tiene pared gruesa, usar Desplazamiento Metálico de TF para volumen anular.");
+    warnings.push("Validado contra Excel. Usa OD de TF como desplazamiento externo, no capacidad interna.");
 
     return {
-      value: Math.round(vol_bbl * 10000) / 10000,
+      value: vol_bbl,
       unit: "bbl",
       inputs,
       steps: [
         `Longitud: ${length_m} m ÷ 0.3048 = ${length_ft.toFixed(4)} ft`,
-        `Capacidad: OD² ÷ 1029.4 = ${od}² ÷ 1029.4 = ${capacity.toFixed(8)} bbl/ft`,
+        `Capacidad externa Excel: (OD² ÷ 1029.4) × ${excelCorrectionFactor.toFixed(10)} = ${capacity.toFixed(8)} bbl/ft`,
         `Vol desplazamiento: ${capacity.toFixed(8)} × ${length_ft.toFixed(4)} = ${vol_bbl.toFixed(4)} bbl`,
-        `(Ref: CALCULO VOLUMEN TF.xls, hoja VOLUMENES, fórmula G28)`,
+        `(Ref: CALCULO VOLUMEN TF.xls, hoja VOLUMENES, fórmula G34)`,
       ],
       warnings,
       errors: [],
       additionalResults: [
-        { label: "Litros", value: Math.round(vol_liters * 100) / 100, unit: "L" },
-        { label: "m³", value: Math.round(vol_m3 * 10000) / 10000, unit: "m³" },
+        { label: "Litros", value: vol_liters, unit: "L" },
+        { label: "m³", value: vol_m3, unit: "m³" },
         { label: "Longitud", value: Math.round(length_ft * 100) / 100, unit: "ft" },
       ],
     };

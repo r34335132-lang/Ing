@@ -93,7 +93,12 @@ function runAllTests(): void {
       formulaId: "tf-displacement",
       description: "OD=1.5in, L=1800m",
       inputs: { od_tf_in: 1.5, length_m: 1800 },
-      expectedValue: (1.5 * 1.5 / 1029.4) * (1800 / 0.3048),
+      expectedValue: 12.8639051470706,
+      tolerance: 0.0001,
+      expectedAdditionalResults: {
+        "Litros|L": 2045.32116983534,
+        "m³|m³": 2.04532116983534
+      }
     },
     {
       formulaId: "tf-metal-displacement",
