@@ -59,29 +59,29 @@ export const excelValidationCases: ExcelValidationCase[] = [
       di: 2.441,
       flow_bpm: 1.5
     },
-    expectedValue: 259.167339435999,
+    expectedValue: 259.143227946854,
     tolerance: 0.0001,
     status: "validated",
     additionalExpected: {
-      "Velocidad": 78.9946062612925
+      "Velocidad": 78.9868558782011
     }
   },
   {
     formulaId: "annular-velocity",
     sourceFile: "CALCULO VOLUMEN TF.xls",
     sourceSheet: "VELOCIDADES",
-    sourceCell: "G21",
+    sourceCell: "G19",
     inputs: {
       d_mayor_in: 2.99,
       d_menor_in: 1.5,
       bpm: 1.5
     },
-    expectedValue: 230.563870306249,
-    tolerance: 0.002,
+    expectedValue: 230.803724906952,
+    tolerance: 0.0001,
     status: "validated",
     notes: "Caso real extraído del Excel. Velocidad anular usando diferencia de diámetros cuadrados.",
     additionalExpected: {
-      "Velocidad": 70.2758700673447
+      "Velocidad": 70.348975351639
     }
   },
   {

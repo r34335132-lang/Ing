@@ -73,20 +73,20 @@ function runAllTests(): void {
       formulaId: "fluid-velocity",
       description: "Validación real vs CALCULO VOLUMEN TF.xls (VELOCIDADES)",
       inputs: { di: 2.441, flow_bpm: 1.5 },
-      expectedValue: 259.167339435999,
+      expectedValue: 259.143227946854,
       tolerance: 0.0001,
       expectedAdditionalResults: {
-        "Velocidad|m/min": 78.9946062612925
+        "Velocidad|m/min": 78.9868558782011
       }
     },
     {
       formulaId: "annular-velocity",
       description: "Validación real vs CALCULO VOLUMEN TF.xls (VELOCIDADES)",
       inputs: { d_mayor_in: 2.99, d_menor_in: 1.5, bpm: 1.5 },
-      expectedValue: 230.563870306249,
-      tolerance: 0.002, // Margen requerido por divergencia matemática en el archivo Excel origen
+      expectedValue: 230.803724906952,
+      tolerance: 0.0001,
       expectedAdditionalResults: {
-        "Velocidad|m/min": 70.2758700673447
+        "Velocidad|m/min": 70.348975351639
       }
     },
     {

@@ -217,7 +217,7 @@ const fluidVelocity: Formula = {
     {
       description: "DI=2.441in, BPM=1.5",
       inputs: { di: 2.441, flow_bpm: 1.5 },
-      expectedValue: 259.167339435999,
+      expectedValue: 259.143227946854,
       tolerance: 0.001,
     },
   ],
