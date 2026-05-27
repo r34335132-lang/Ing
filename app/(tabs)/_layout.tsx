@@ -8,6 +8,9 @@ import React from "react";
 import { Platform, StyleSheet, View, useColorScheme } from "react-native";
 import { useColors } from "@/hooks/useColors";
 
+const calculatorSf = { default: "calculator", selected: "calculator.fill" } as any;
+const calculatorSymbol = "calculator" as any;
+
 function NativeTabLayout() {
   return (
     <NativeTabs>
@@ -16,7 +19,7 @@ function NativeTabLayout() {
         <Label>Inicio</Label>
       </NativeTabs.Trigger>
       <NativeTabs.Trigger name="calculators">
-        <Icon sf={{ default: "calculator", selected: "calculator.fill" }} />
+        <Icon sf={calculatorSf} />
         <Label>Calcular</Label>
       </NativeTabs.Trigger>
       <NativeTabs.Trigger name="history">
@@ -83,7 +86,7 @@ function ClassicTabLayout() {
           title: "Calcular",
           tabBarIcon: ({ color }) =>
             isIOS ? (
-              <SymbolView name="calculator" tintColor={color} size={22} />
+              <SymbolView name={calculatorSymbol} tintColor={color} size={22} />
             ) : (
               <MaterialCommunityIcons name="calculator-variant-outline" size={22} color={color} />
             ),

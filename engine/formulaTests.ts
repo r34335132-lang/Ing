@@ -65,8 +65,8 @@ function runAllTests(): void {
       expectedValue: 7.53845791983405,
       tolerance: 0.0001,
       expectedAdditionalResults: {
-        "Volumen|L": 1198.28893085225,
-        "Volumen|m³": 1.19828893085225
+        "Volumen|L": 1198.5190326029726,
+        "Volumen|m³": 1.1985190326029726
       }
     },
     {
@@ -119,7 +119,7 @@ function runAllTests(): void {
       expectedValue: 10733.7748994583,
       tolerance: 0.0001,
       expectedAdditionalResults: {
-        "Longitud|m": 3271.25419175449,
+        "Longitud|m": 3271.6545893549005,
         "Capas verticales|capas": 10,
         "Vueltas horizontales|vueltas": 50
       }

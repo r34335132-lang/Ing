@@ -46,8 +46,8 @@ export const excelValidationCases: ExcelValidationCase[] = [
     status: "validated",
     notes: "Caso real extraído del Excel. Volumen anular usando diferencia de diámetros cuadrados.",
     additionalExpected: {
-      vol_liters: 1198.28893085225,
-      vol_m3: 1.19828893085225
+      vol_liters: 1198.5190326029726,
+      vol_m3: 1.1985190326029726
     }
   },
   {

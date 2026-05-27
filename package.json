@@ -2,13 +2,14 @@
   "name": "oilcalc-pro",
   "version": "0.0.0",
   "private": true,
+  "packageManager": "pnpm@11.1.1",
   "main": "expo-router/entry",
   "scripts": {
     "dev": "expo start",
     "build": "node scripts/build.js",
     "serve": "node server/serve.js",
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "test:formulas": "ts-node --project tsconfig.json engine/formulaTests.ts"
+    "test:formulas": "ts-node --project tsconfig.formulas.json engine/formulaTests.ts"
   },
   "devDependencies": {
     "@babel/core": "^7.25.2",
