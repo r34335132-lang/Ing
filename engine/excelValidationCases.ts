@@ -172,6 +172,21 @@ export const excelValidationCases: ExcelValidationCase[] = [
     }
   },
   {
+    formulaId: "bit-pressure-loss",
+    sourceFile: "HIDRAULICA_RIVERO.xls",
+    sourceSheet: "ENTRY / CALCULATE",
+    sourceCell: "ENTRY!U7 / CALCULATE!C20",
+    inputs: {
+      q_gpm: 400,
+      density_ppg: 10.5,
+      tfa_in2: 0.785
+    },
+    expectedValue: null,
+    tolerance: 0.0001,
+    status: "manual_pending",
+    notes: "Fórmula mapeada desde hidráulica: 156.5 * Q^2 * densidad / TFA^2. Pendiente capturar caso real exacto del Excel."
+  },
+  {
     formulaId: "hydraulics",
     sourceFile: "HIDRAULICA_RIVERO.xls",
     sourceSheet: "ECD",

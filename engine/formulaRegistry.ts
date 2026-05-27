@@ -682,7 +682,57 @@ const bachecologico: Formula = {
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
-// 10. HIDRÁULICA DE PERFORACIÓN
+// 10. CAÍDA DE PRESIÓN EN BARRENA
+// Source: HIDRAULICA_RIVERO.xls · ENTRY!U7 / CALCULATE!C20
+// STATUS: BLOQUEADA — needsReview=true hasta validar caso numérico exacto.
+// ─────────────────────────────────────────────────────────────────────────────
+const bitPressureLoss: Formula = {
+  id: "bit-pressure-loss",
+  name: "Caída de presión en barrena",
+  category: "Hidráulica",
+  description: "Calcula la caída de presión en barrena usando gasto, densidad del fluido y TFA.",
+  icon: "gauge",
+  inputs: [
+    { key: "q_gpm", label: "Gasto", unit: "gpm", type: "number", required: true, min: 0.001, placeholder: "Ej: 400" },
+    { key: "density_ppg", label: "Densidad del fluido", unit: "ppg", type: "number", required: true, min: 0.001, placeholder: "Ej: 10.5" },
+    { key: "tfa_in2", label: "Área total de flujo", unit: "in²", type: "number", required: true, min: 0.001, placeholder: "Ej: 0.785" },
+  ],
+  output: { label: "Caída de presión en barrena", unit: "psi" },
+  formulaText: "ΔP_bit(psi) = 156.5 × Q² × MW / TFA²",
+  references: [
+    "HIDRAULICA_RIVERO.xls — ENTRY!U7 / CALCULATE!C20",
+    "Hydraulics_IPM.xls — Consol!C20",
+  ],
+  needsReview: true,
+  calculate(inputs) {
+    const q_gpm = Number(inputs["q_gpm"]);
+    const density_ppg = Number(inputs["density_ppg"]);
+    const tfa_in2 = Number(inputs["tfa_in2"]);
+    const errors: string[] = [];
+
+    if (isNaN(q_gpm) || q_gpm <= 0) errors.push("Gasto debe ser mayor que cero.");
+    if (isNaN(density_ppg) || density_ppg <= 0) errors.push("Densidad del fluido debe ser mayor que cero.");
+    if (isNaN(tfa_in2) || tfa_in2 <= 0) errors.push("TFA debe ser mayor que cero.");
+    if (errors.length > 0) return { value: 0, unit: "psi", inputs, steps: [], warnings: [], errors };
+
+    const pressureLossPsi = 156.5 * q_gpm * q_gpm * density_ppg / (tfa_in2 * tfa_in2);
+
+    return {
+      value: pressureLossPsi,
+      unit: "psi",
+      inputs,
+      steps: [
+        `ΔP_bit = 156.5 × ${q_gpm}² × ${density_ppg} / ${tfa_in2}² = ${pressureLossPsi.toFixed(4)} psi`,
+        "Referencias: HIDRAULICA_RIVERO.xls ENTRY!U7 / CALCULATE!C20; Hydraulics_IPM.xls Consol!C20.",
+      ],
+      warnings: [],
+      errors: [],
+    };
+  },
+};
+
+// ─────────────────────────────────────────────────────────────────────────────
+// 11. HIDRÁULICA DE PERFORACIÓN
 // Source: HIDRAULICA_RIVERO.xls · Hydraulics_IPM.xls
 // STATUS: BLOQUEADA — needsReview=true. No muestra resultado como válido.
 // ─────────────────────────────────────────────────────────────────────────────
@@ -736,6 +786,7 @@ const registry: Formula[] = [
   coiledTubing,
   fillPenetrationVelocity,
   bachecologico,
+  bitPressureLoss,
   hydraulics,
 ];
 

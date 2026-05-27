@@ -157,6 +157,13 @@ function runAllTests(): void {
       expectedValue: 0,
       expectBlocked: true
     },
+    {
+      formulaId: "bit-pressure-loss",
+      description: "BLOCKED: bit-pressure-loss pendiente de caso exacto vs Excel",
+      inputs: { q_gpm: 400, density_ppg: 10.5, tfa_in2: 0.785 },
+      expectedValue: 0,
+      expectBlocked: true
+    },
 
     // ── Tests de Errores de Input (Rechazo Fuerte) ─────────────────────────
     {
@@ -198,6 +205,13 @@ function runAllTests(): void {
       formulaId: "fill-penetration-velocity",
       description: "ERROR: D_mayor <= od_tf_in",
       inputs: { d_mayor_in: 1.5, od_tf_in: 2.99, bpm: 1.5, acarreo_percent: 10 },
+      expectedValue: 0,
+      expectError: true
+    },
+    {
+      formulaId: "bit-pressure-loss",
+      description: "ERROR: tfa_in2 <= 0",
+      inputs: { q_gpm: 400, density_ppg: 10.5, tfa_in2: 0 },
       expectedValue: 0,
       expectError: true
     }
