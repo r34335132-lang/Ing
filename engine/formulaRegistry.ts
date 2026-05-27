@@ -407,46 +407,45 @@ const tfMetalDisplacement: Formula = {
     {
       description: "OD=1.5in, ID=1.321in, L=1800m",
       inputs: { od_tf_in: 1.5, id_tf_in: 1.321, length_m: 1800 },
-      expectedValue: ((1.5 * 1.5 - 1.321 * 1.321) / 1029.4) * (1800 / 0.3048),
-      tolerance: 0.001,
+      expectedValue: 2.89687326460334,
+      tolerance: 0.0001,
     },
   ],
   calculate(inputs) {
-    const od = Number(inputs["od_tf_in"]);
-    const id = Number(inputs["id_tf_in"]);
+    const od_tf_in = Number(inputs["od_tf_in"]);
+    const id_tf_in = Number(inputs["id_tf_in"]);
     const length_m = Number(inputs["length_m"]);
     const errors: string[] = [];
     const warnings: string[] = [];
 
-    if (isNaN(od) || od <= 0) errors.push("OD de TF debe ser mayor que cero.");
-    if (isNaN(id) || id <= 0) errors.push("ID de TF debe ser mayor que cero.");
-    if (!isNaN(od) && !isNaN(id) && od <= id) errors.push("OD debe ser estrictamente mayor que ID.");
+    if (isNaN(od_tf_in) || od_tf_in <= 0) errors.push("OD de TF debe ser mayor que cero.");
+    if (isNaN(id_tf_in) || id_tf_in <= 0) errors.push("ID de TF debe ser mayor que cero.");
+    if (!isNaN(od_tf_in) && !isNaN(id_tf_in) && od_tf_in <= id_tf_in) errors.push("OD debe ser estrictamente mayor que ID.");
     if (isNaN(length_m) || length_m <= 0) errors.push("Longitud debe ser mayor que cero.");
     if (errors.length > 0) return { value: 0, unit: "bbl", inputs, steps: [], warnings, errors };
 
+    const areaDiff = od_tf_in * od_tf_in - id_tf_in * id_tf_in;
     const length_ft = length_m / 0.3048;
-    const diff = od * od - id * id;
-    const capacity = diff / 1029.4;
-    const vol_bbl = capacity * length_ft;
-    const vol_liters = vol_bbl * 158.987;
-    const vol_m3 = vol_bbl * 0.158987;
+    const vol_bbl = (areaDiff / 1029.4) * length_ft;
+    const vol_liters = vol_bbl * 158.987294928;
+    const vol_m3 = vol_bbl * 0.158987294928;
 
     return {
-      value: Math.round(vol_bbl * 10000) / 10000,
+      value: vol_bbl,
       unit: "bbl",
       inputs,
       steps: [
         `Longitud: ${length_m} m ÷ 0.3048 = ${length_ft.toFixed(4)} ft`,
-        `Área metálica: OD² - ID² = ${od}² - ${id}² = ${(od * od).toFixed(6)} - ${(id * id).toFixed(6)} = ${diff.toFixed(6)} in²`,
-        `Capacidad metálica: ${diff.toFixed(6)} ÷ 1029.4 = ${capacity.toFixed(8)} bbl/ft`,
-        `Vol metálico: ${capacity.toFixed(8)} × ${length_ft.toFixed(4)} = ${vol_bbl.toFixed(4)} bbl`,
+        `Área metálica: OD² - ID² = ${od_tf_in}² - ${id_tf_in}² = ${(od_tf_in * od_tf_in).toFixed(6)} - ${(id_tf_in * id_tf_in).toFixed(6)} = ${areaDiff.toFixed(6)} in²`,
+        `Capacidad metálica: ${areaDiff.toFixed(6)} ÷ 1029.4 = ${(areaDiff / 1029.4).toFixed(8)} bbl/ft`,
+        `Vol metálico: ${(areaDiff / 1029.4).toFixed(8)} × ${length_ft.toFixed(4)} = ${vol_bbl.toFixed(4)} bbl`,
         `(Ref: CALCULO VOLUMEN TF.xls, hoja VOLUMENES, fórmula G37)`,
       ],
       warnings,
       errors: [],
       additionalResults: [
-        { label: "Litros", value: Math.round(vol_liters * 100) / 100, unit: "L" },
-        { label: "m³", value: Math.round(vol_m3 * 10000) / 10000, unit: "m³" },
+        { label: "Litros", value: vol_liters, unit: "L" },
+        { label: "m³", value: vol_m3, unit: "m³" },
       ],
     };
   },

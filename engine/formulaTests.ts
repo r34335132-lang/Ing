@@ -97,9 +97,14 @@ function runAllTests(): void {
     },
     {
       formulaId: "tf-metal-displacement",
-      description: "OD=1.5, ID=1.321, L=1800m",
+      description: "Validación real vs CALCULO VOLUMEN TF.xls",
       inputs: { od_tf_in: 1.5, id_tf_in: 1.321, length_m: 1800 },
-      expectedValue: ((1.5 * 1.5 - 1.321 * 1.321) / 1029.4) * (1800 / 0.3048),
+      expectedValue: 2.89687326460334,
+      tolerance: 0.0001,
+      expectedAdditionalResults: {
+        "Litros|L": 460.5660440885294,
+        "m³|m³": 0.4605660440885294
+      }
     },
     {
       formulaId: "bache-ecologico",
@@ -167,6 +172,13 @@ function runAllTests(): void {
       formulaId: "coiled-tubing",
       description: "ERROR: coilOdIn <= 0 (Input inválido)",
       inputs: { flangeHeightIn: 25, freeBoardIn: 1, coreDiameterIn: 96, coreWidthIn: 82, coilOdIn: 0 },
+      expectedValue: 0,
+      expectError: true
+    },
+    {
+      formulaId: "tf-metal-displacement",
+      description: "ERROR: od_tf_in <= id_tf_in",
+      inputs: { od_tf_in: 1.321, id_tf_in: 1.5, length_m: 1800 },
       expectedValue: 0,
       expectError: true
     },

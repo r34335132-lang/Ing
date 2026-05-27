@@ -85,6 +85,24 @@ export const excelValidationCases: ExcelValidationCase[] = [
     }
   },
   {
+    formulaId: "tf-metal-displacement",
+    sourceFile: "CALCULO VOLUMEN TF.xls",
+    sourceSheet: "VOLUMENES",
+    sourceCell: "G37",
+    inputs: {
+      od_tf_in: 1.5,
+      id_tf_in: 1.321,
+      length_m: 1800
+    },
+    expectedValue: 2.89687326460334,
+    tolerance: 0.0001,
+    status: "validated",
+    additionalExpected: {
+      "Litros": 460.5660440885294,
+      "m³": 0.4605660440885294
+    }
+  },
+  {
     formulaId: "coiled-tubing",
     sourceFile: "CoilTubingReelCapacitycalculator.xls",
     sourceSheet: "Coillength Program",
