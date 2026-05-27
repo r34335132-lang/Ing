@@ -334,7 +334,7 @@ const tfDisplacement: Formula = {
     { key: "length_m", label: "Longitud", unit: "m", type: "number", required: true, min: 0.001, placeholder: "Ej: 1800" },
   ],
   output: { label: "Desplazamiento de TF", unit: "bbl" },
-  formulaText: "V(bbl) = (OD_TF² / 1029.4) × (L(m) / 0.3048)",
+  formulaText: "V(bbl) = (OD_TF² / 1029.4) × factor_excel × (L(m) / 0.3048)",
   references: ["CALCULO VOLUMEN TF.xls — Hoja VOLUMENES, fórmula G34"],
   needsReview: false,
   testCases: [
@@ -356,6 +356,7 @@ const tfDisplacement: Formula = {
     if (errors.length > 0) return { value: 0, unit: "bbl", inputs, steps: [], warnings, errors };
 
     const length_ft = length_m / 0.3048;
+    // Factor observado en CALCULO VOLUMEN TF.xls, hoja VOLUMENES, celda G34, para igualar el desplazamiento externo de TF.
     const excelCorrectionFactor = 0.9965909349428732;
     const capacity = ((od * od) / 1029.4) * excelCorrectionFactor;
     const vol_bbl = capacity * length_ft;
