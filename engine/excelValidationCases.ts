@@ -51,6 +51,22 @@ export const excelValidationCases: ExcelValidationCase[] = [
     }
   },
   {
+    formulaId: "fluid-velocity",
+    sourceFile: "CALCULO VOLUMEN TF.xls",
+    sourceSheet: "VELOCIDADES",
+    sourceCell: "G10",
+    inputs: {
+      di: 2.441,
+      flow_bpm: 1.5
+    },
+    expectedValue: 259.167339435999,
+    tolerance: 0.0001,
+    status: "validated",
+    additionalExpected: {
+      "Velocidad": 78.9946062612925
+    }
+  },
+  {
     formulaId: "annular-velocity",
     sourceFile: "CALCULO VOLUMEN TF.xls",
     sourceSheet: "VELOCIDADES",

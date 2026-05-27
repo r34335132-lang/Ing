@@ -217,7 +217,7 @@ const fluidVelocity: Formula = {
     {
       description: "DI=2.441in, BPM=1.5",
       inputs: { di: 2.441, flow_bpm: 1.5 },
-      expectedValue: 1.5 / ((2.441 * 2.441) / 1029.4),
+      expectedValue: 259.167339435999,
       tolerance: 0.001,
     },
   ],
@@ -231,25 +231,25 @@ const fluidVelocity: Formula = {
     if (isNaN(flow_bpm) || flow_bpm < 0) errors.push("El gasto debe ser >= 0.");
     if (errors.length > 0) return { value: 0, unit: "ft/min", inputs, steps: [], warnings, errors };
 
-    const capacity = (di * di) / 1029.4;
-    const velocity_ft_min = flow_bpm / capacity;
-    const velocity_m_min = velocity_ft_min * 0.3048;
+    const capacityBblPerFt = (di * di) / 1029.4;
+    const vel_ft_min = flow_bpm / capacityBblPerFt;
+    const vel_m_min = vel_ft_min * 0.3048;
 
-    if (velocity_ft_min > 1000) warnings.push("Velocidad muy alta (>1000 ft/min). Riesgo de erosión.");
-    if (velocity_ft_min < 10 && flow_bpm > 0) warnings.push("Velocidad baja (<10 ft/min). Puede ser insuficiente.");
+    if (vel_ft_min > 1000) warnings.push("Velocidad muy alta (>1000 ft/min). Riesgo de erosión.");
+    if (vel_ft_min < 10 && flow_bpm > 0) warnings.push("Velocidad baja (<10 ft/min). Puede ser insuficiente.");
 
     return {
-      value: Math.round(velocity_ft_min * 100) / 100,
+      value: vel_ft_min,
       unit: "ft/min",
       inputs,
       steps: [
-        `Capacidad: C = DI² ÷ 1029.4 = ${di}² ÷ 1029.4 = ${capacity.toFixed(7)} bbl/ft`,
-        `Velocidad: V = ${flow_bpm} BPM ÷ ${capacity.toFixed(7)} = ${velocity_ft_min.toFixed(4)} ft/min`,
+        `Capacidad: C = DI² ÷ 1029.4 = ${di}² ÷ 1029.4 = ${capacityBblPerFt.toFixed(7)} bbl/ft`,
+        `Velocidad: V = ${flow_bpm} BPM ÷ ${capacityBblPerFt.toFixed(7)} = ${vel_ft_min.toFixed(4)} ft/min`,
       ],
       warnings,
       errors: [],
       additionalResults: [
-        { label: "Velocidad", value: Math.round(velocity_m_min * 1000) / 1000, unit: "m/min" },
+        { label: "Velocidad", value: vel_m_min, unit: "m/min" },
       ],
     };
   },

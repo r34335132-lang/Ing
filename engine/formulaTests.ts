@@ -71,9 +71,13 @@ function runAllTests(): void {
     },
     {
       formulaId: "fluid-velocity",
-      description: "DI=2.441in, BPM=1.5",
+      description: "Validación real vs CALCULO VOLUMEN TF.xls (VELOCIDADES)",
       inputs: { di: 2.441, flow_bpm: 1.5 },
-      expectedValue: 1.5 / ((2.441 * 2.441) / 1029.4),
+      expectedValue: 259.167339435999,
+      tolerance: 0.0001,
+      expectedAdditionalResults: {
+        "Velocidad|m/min": 78.9946062612925
+      }
     },
     {
       formulaId: "annular-velocity",
