@@ -148,8 +148,63 @@ function runAllTests(): void {
         "Velocidad|m/min": 4.43103064601104
       }
     },
+    {
+      formulaId: "tfa-nozzles",
+      description: "Validación real vs HIDRAULICA_RIVERO.xls ENTRY!C24",
+      inputs: { nozzle1_32: 10, nozzle2_32: 10, nozzle3_32: 10, nozzle4_32: 10, nozzle5_32: 9, nozzle6_32: 9 },
+      expectedValue: 0.43104869853205674,
+      tolerance: 0.0001,
+      expectedAdditionalResults: {
+        "Suma nozzle²|32nds²": 562
+      }
+    },
+    {
+      formulaId: "bit-pressure-loss-from-nozzles",
+      description: "Validación real vs HIDRAULICA_RIVERO.xls CALCULATE!C20 / ENTRY!U7",
+      inputs: { q_gpm: 427.41067873139997, density_grcc: 1.29, nozzle1_32: 10, nozzle2_32: 10, nozzle3_32: 10, nozzle4_32: 10, nozzle5_32: 9, nozzle6_32: 9 },
+      expectedValue: 972.6736700307072,
+      tolerance: 0.0001,
+      expectedAdditionalResults: {
+        "TFA|in²": 0.43104869853205674,
+        "MW|ppg": 10.745700000000001,
+        "Suma nozzle²|32nds²": 562
+      }
+    },
+    {
+      formulaId: "ecd-dec-rivero",
+      description: "Validación real vs HIDRAULICA_RIVERO.xls CALCULATE!S14",
+      inputs: {
+        pressure_loss_psi: (1.3778862053674235 - 1.29) * 8.33 * 0.052 * 3161 * 3.281,
+        depth_m: 3161,
+        mud_density_grcc: 1.29
+      },
+      expectedValue: 1.3778862053674235,
+      tolerance: 0.0001,
+      expectedAdditionalResults: {
+        "Incremento densidad|gr/cc": 0.08788620536742345,
+        "Profundidad|ft": 10371.241
+      }
+    },
 
     // ── Tests de Bloqueo por Revisión (Seguridad) ──────────────────────────
+    {
+      formulaId: "annular-pressure-loss-rivero",
+      description: "Validacion real vs HIDRAULICA_RIVERO.xls CALCULATE!R14 / ENTRY!U6",
+      inputs: {
+        q11_psi: 346.9184812326709,
+        q12_psi: 16.38171753498215,
+        q13_psi: 10.60379423336763,
+        q14_psi: 20.916589360581217
+      },
+      expectedValue: 394.8205823616019,
+      tolerance: 0.0001,
+      expectedAdditionalResults: {
+        "Q11|psi": 346.9184812326709,
+        "Q12|psi": 16.38171753498215,
+        "Q13|psi": 10.60379423336763,
+        "Q14|psi": 20.916589360581217
+      }
+    },
     {
       formulaId: "hydraulics",
       description: "BLOCKED: Hydraulics pendiente de validación vs Excel",
@@ -165,13 +220,12 @@ function runAllTests(): void {
       expectBlocked: true
     },
     {
-      formulaId: "tfa-nozzles",
-      description: "BLOCKED: tfa-nozzles pendiente de caso exacto vs Excel",
-      inputs: { nozzle1_32: 12, nozzle2_32: 12, nozzle3_32: 12 },
+      formulaId: "hydrostatic-pressure",
+      description: "BLOCKED: hydrostatic-pressure inferida desde CALCULATE!S14",
+      inputs: { depth_m: 3161, density_grcc: 1.29 },
       expectedValue: 0,
       expectBlocked: true
     },
-
     // ── Tests de Errores de Input (Rechazo Fuerte) ─────────────────────────
     {
       formulaId: "annular-volume",
@@ -233,6 +287,46 @@ function runAllTests(): void {
       formulaId: "tfa-nozzles",
       description: "ERROR: tobera negativa",
       inputs: { nozzle1_32: -1, nozzle2_32: 12, nozzle3_32: 12 },
+      expectedValue: 0,
+      expectError: true
+    },
+    {
+      formulaId: "bit-pressure-loss-from-nozzles",
+      description: "ERROR: todas las toberas son 0",
+      inputs: { q_gpm: 400, density_grcc: 1.29, nozzle1_32: 0, nozzle2_32: 0, nozzle3_32: 0 },
+      expectedValue: 0,
+      expectError: true
+    },
+    {
+      formulaId: "bit-pressure-loss-from-nozzles",
+      description: "ERROR: q_gpm <= 0",
+      inputs: { q_gpm: 0, density_grcc: 1.29, nozzle1_32: 12, nozzle2_32: 12, nozzle3_32: 12 },
+      expectedValue: 0,
+      expectError: true
+    },
+    {
+      formulaId: "hydrostatic-pressure",
+      description: "ERROR: depth_m <= 0",
+      inputs: { depth_m: 0, density_grcc: 1.29 },
+      expectedValue: 0,
+      expectError: true
+    },
+    {
+      formulaId: "ecd-dec-rivero",
+      description: "ERROR: depth_m <= 0",
+      inputs: { pressure_loss_psi: 100, depth_m: 0, mud_density_grcc: 1.29 },
+      expectedValue: 0,
+      expectError: true
+    },
+    {
+      formulaId: "annular-pressure-loss-rivero",
+      description: "ERROR: q11_psi < 0",
+      inputs: {
+        q11_psi: -1,
+        q12_psi: 16.38171753498215,
+        q13_psi: 10.60379423336763,
+        q14_psi: 20.916589360581217
+      },
       expectedValue: 0,
       expectError: true
     }

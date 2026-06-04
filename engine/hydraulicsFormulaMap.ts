@@ -33,7 +33,7 @@ export const hydraulicsFormulaMap: HydraulicsFormulaMapEntry[] = [
     inputs: ["B21:D22 nozzle sizes"],
     dependencies: ["ENTRY!B21", "ENTRY!C21", "ENTRY!D21", "ENTRY!B22", "ENTRY!C22", "ENTRY!D22"],
     status: "mapped_pending_validation",
-    notes: "TFA en in2 calculada desde diametros de toberas.",
+    notes: "Validado contra ENTRY!C24: TFA en in2 = suma de cuadrados de toberas / 1303.797.",
   },
   {
     sourceFile: "HIDRAULICA_RIVERO.xls",
@@ -66,7 +66,7 @@ export const hydraulicsFormulaMap: HydraulicsFormulaMapEntry[] = [
     inputs: ["ENTRY!C8 flow rate", "ENTRY!B12 mud density", "ENTRY!B21:D22 nozzle sizes"],
     dependencies: ["CALCULATE!C20"],
     status: "mapped_pending_validation",
-    notes: "CALCULATE!C20 usa 156.5 * Q^2 * densidad / TFA^2.",
+    notes: "CALCULATE!C20 usa 156.5 * Q^2 * densidad_grcc * 8.33 / (suma nozzle^2)^2; no divide por TFA(in2)^2.",
   },
   {
     sourceFile: "HIDRAULICA_RIVERO.xls",

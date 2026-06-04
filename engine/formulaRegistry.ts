@@ -701,12 +701,12 @@ const tfaNozzles: Formula = {
     { key: "nozzle6_32", label: "Tobera 6", unit: "1/32 in", type: "number", required: false, min: 0, max: 40, placeholder: "Opcional" },
   ],
   output: { label: "TFA", unit: "in²" },
-  formulaText: "TFA(in²) = Σ(nozzle²) × 0.000767",
+  formulaText: "TFA(in²) = Σ(nozzle²) / 1303.797",
   references: [
     "Hydraulics_IPM.xls — TFA / nozzle area",
     "HIDRAULICA_RIVERO.xls — TFA por toberas",
   ],
-  needsReview: true,
+  needsReview: false,
   calculate(inputs) {
     const nozzleKeys = ["nozzle1_32", "nozzle2_32", "nozzle3_32", "nozzle4_32", "nozzle5_32", "nozzle6_32"];
     const errors: string[] = [];
@@ -725,7 +725,7 @@ const tfaNozzles: Formula = {
     if (errors.length > 0) return { value: 0, unit: "in²", inputs, steps: [], warnings: [], errors };
 
     const sumSquares = nozzles.reduce((sum, nozzle) => sum + nozzle * nozzle, 0);
-    const tfa_in2 = sumSquares * 0.000767;
+    const tfa_in2 = sumSquares / 1303.797;
 
     if (tfa_in2 <= 0) errors.push("TFA final debe ser mayor que cero.");
     if (errors.length > 0) return { value: 0, unit: "in²", inputs, steps: [], warnings: [], errors };
@@ -736,10 +736,13 @@ const tfaNozzles: Formula = {
       inputs,
       steps: [
         `Suma de cuadrados: ${nozzles.join("² + ")}² = ${sumSquares.toFixed(4)}`,
-        `TFA = ${sumSquares.toFixed(4)} × 0.000767 = ${tfa_in2.toFixed(6)} in²`,
+        `TFA = ${sumSquares.toFixed(4)} / 1303.797 = ${tfa_in2.toFixed(6)} in²`,
       ],
       warnings: [],
       errors: [],
+      additionalResults: [
+        { label: "Suma nozzle²", value: sumSquares, unit: "32nds²" },
+      ],
     };
   },
 };
@@ -761,7 +764,7 @@ const bitPressureLoss: Formula = {
     { key: "tfa_in2", label: "Área total de flujo", unit: "in²", type: "number", required: true, min: 0.001, placeholder: "Ej: 0.785" },
   ],
   output: { label: "Caída de presión en barrena", unit: "psi" },
-  formulaText: "ΔP_bit(psi) = 156.5 × Q² × MW / TFA²",
+  formulaText: "ΔP_bit(psi) = 156.5 × Q² × MW / TFA² (pendiente validar variante con TFA directa; Rivero usa Σ nozzle², no TFA²)",
   references: [
     "HIDRAULICA_RIVERO.xls — ENTRY!U7 / CALCULATE!C20",
     "Hydraulics_IPM.xls — Consol!C20",
@@ -786,7 +789,7 @@ const bitPressureLoss: Formula = {
       inputs,
       steps: [
         `ΔP_bit = 156.5 × ${q_gpm}² × ${density_ppg} / ${tfa_in2}² = ${pressureLossPsi.toFixed(4)} psi`,
-        "Referencias: HIDRAULICA_RIVERO.xls ENTRY!U7 / CALCULATE!C20; Hydraulics_IPM.xls Consol!C20.",
+        "Pendiente validar variante con TFA directa. Rivero usa Σ nozzle², no TFA².",
       ],
       warnings: [],
       errors: [],
@@ -795,7 +798,260 @@ const bitPressureLoss: Formula = {
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
-// 12. HIDRÁULICA DE PERFORACIÓN
+// 12. CAÍDA DE PRESIÓN EN BARRENA DESDE TOBERAS
+// Source: Hydraulics_IPM.xls · HIDRAULICA_RIVERO.xls
+// STATUS: BLOQUEADA — needsReview=true hasta validar caso numérico exacto.
+// ─────────────────────────────────────────────────────────────────────────────
+const bitPressureLossFromNozzles: Formula = {
+  id: "bit-pressure-loss-from-nozzles",
+  name: "Caída de presión en barrena desde toberas",
+  category: "Hidráulica",
+  description: "Calcula la caída de presión en barrena usando gasto, densidad y tamaños de toberas en 1/32 in.",
+  icon: "gauge",
+  inputs: [
+    { key: "q_gpm", label: "Gasto", unit: "gpm", type: "number", required: true, min: 0.001, placeholder: "Ej: 400" },
+    { key: "density_grcc", label: "Densidad del fluido", unit: "gr/cc", type: "number", required: true, min: 0.001, placeholder: "Ej: 1.29" },
+    { key: "nozzle1_32", label: "Tobera 1", unit: "1/32 in", type: "number", required: true, min: 0, max: 40, placeholder: "Ej: 12" },
+    { key: "nozzle2_32", label: "Tobera 2", unit: "1/32 in", type: "number", required: true, min: 0, max: 40, placeholder: "Ej: 12" },
+    { key: "nozzle3_32", label: "Tobera 3", unit: "1/32 in", type: "number", required: true, min: 0, max: 40, placeholder: "Ej: 12" },
+    { key: "nozzle4_32", label: "Tobera 4", unit: "1/32 in", type: "number", required: false, min: 0, max: 40, placeholder: "Opcional" },
+    { key: "nozzle5_32", label: "Tobera 5", unit: "1/32 in", type: "number", required: false, min: 0, max: 40, placeholder: "Opcional" },
+    { key: "nozzle6_32", label: "Tobera 6", unit: "1/32 in", type: "number", required: false, min: 0, max: 40, placeholder: "Opcional" },
+  ],
+  output: { label: "Caída de presión en barrena", unit: "psi" },
+  formulaText: "ΔP_bit(psi) = 156.5 × Q² × (densidad_grcc × 8.33) / (Σ nozzle²)²",
+  references: [
+    "Hydraulics_IPM.xls — TFA / Bit pressure loss",
+    "HIDRAULICA_RIVERO.xls — TFA / caída en barrena",
+  ],
+  needsReview: false,
+  calculate(inputs) {
+    const q_gpm = Number(inputs["q_gpm"]);
+    const density_grcc = Number(inputs["density_grcc"]);
+    const fallbackDensityPpg = Number(inputs["density_ppg"]);
+    const nozzleKeys = ["nozzle1_32", "nozzle2_32", "nozzle3_32", "nozzle4_32", "nozzle5_32", "nozzle6_32"];
+    const nullableInputs = inputs as Record<string, number | string | null | undefined>;
+    const errors: string[] = [];
+
+    if (isNaN(q_gpm) || q_gpm <= 0) errors.push("Gasto debe ser mayor que cero.");
+    const density_ppg = !isNaN(density_grcc) && density_grcc > 0 ? density_grcc * 8.33 : fallbackDensityPpg;
+    if ((isNaN(density_grcc) || density_grcc <= 0) && (isNaN(fallbackDensityPpg) || fallbackDensityPpg <= 0)) {
+      errors.push("Densidad del fluido debe ser mayor que cero.");
+    }
+
+    const nozzles = nozzleKeys.map((key) => {
+      const rawValue = nullableInputs[key];
+      const value = rawValue === undefined || rawValue === null || rawValue === "" ? 0 : Number(rawValue);
+
+      if (isNaN(value)) errors.push(`${key} debe ser numérico.`);
+      if (!isNaN(value) && value < 0) errors.push(`${key} no debe ser negativo.`);
+      if (!isNaN(value) && value > 40) errors.push(`${key} no debe ser mayor a 40.`);
+
+      return isNaN(value) ? 0 : value;
+    });
+
+    if (!nozzles.some((nozzle) => nozzle > 0)) errors.push("Al menos una tobera debe ser mayor que cero.");
+    if (errors.length > 0) return { value: 0, unit: "psi", inputs, steps: [], warnings: [], errors };
+
+    const sumSquares = nozzles.reduce((sum, nozzle) => sum + nozzle * nozzle, 0);
+    const tfa_in2 = sumSquares / 1303.797;
+
+    if (tfa_in2 <= 0) errors.push("TFA final debe ser mayor que cero.");
+    if (errors.length > 0) return { value: 0, unit: "psi", inputs, steps: [], warnings: [], errors };
+
+    const pressureLossPsi = 156.5 * q_gpm * q_gpm * density_ppg / (sumSquares * sumSquares);
+
+    return {
+      value: pressureLossPsi,
+      unit: "psi",
+      inputs,
+      steps: [
+        `TFA = ${sumSquares.toFixed(4)} / 1303.797 = ${tfa_in2.toFixed(6)} in²`,
+        `MW = ${!isNaN(density_grcc) && density_grcc > 0 ? `${density_grcc} × 8.33 = ` : ""}${density_ppg.toFixed(6)} ppg`,
+        `ΔP_bit = 156.5 × ${q_gpm}² × ${density_ppg.toFixed(6)} / ${sumSquares.toFixed(4)}² = ${pressureLossPsi.toFixed(4)} psi`,
+      ],
+      warnings: [],
+      errors: [],
+      additionalResults: [
+        { label: "TFA", value: tfa_in2, unit: "in²" },
+        { label: "MW", value: density_ppg, unit: "ppg" },
+        { label: "Suma nozzle²", value: sumSquares, unit: "32nds²" },
+      ],
+    };
+  },
+};
+
+// ─────────────────────────────────────────────────────────────────────────────
+// 13. DEC / ECD RIVERO
+// Source: HIDRAULICA_RIVERO.xls · CALCULATE!S14
+// ─────────────────────────────────────────────────────────────────────────────
+const ecdDecRivero: Formula = {
+  id: "ecd-dec-rivero",
+  name: "DEC / ECD Rivero",
+  category: "Hidráulica",
+  description: "Calcula densidad equivalente de circulación usando pérdida de presión, profundidad y densidad base del lodo.",
+  icon: "gauge",
+  inputs: [
+    { key: "pressure_loss_psi", label: "Pérdida de presión", unit: "psi", type: "number", required: true, min: 0, placeholder: "Ej: 394.82" },
+    { key: "depth_m", label: "Profundidad", unit: "m", type: "number", required: true, min: 0.001, placeholder: "Ej: 3161" },
+    { key: "mud_density_grcc", label: "Densidad base del lodo", unit: "gr/cc", type: "number", required: true, min: 0.001, placeholder: "Ej: 1.29" },
+  ],
+  output: { label: "DEC / ECD", unit: "gr/cc" },
+  formulaText: "ECD(gr/cc) = ΔP / (0.052 × TVD(ft)) / 8.33 + densidad_lodo(gr/cc)",
+  references: [
+    "HIDRAULICA_RIVERO.xls — CALCULATE!S14",
+  ],
+  needsReview: false,
+  calculate(inputs) {
+    const pressure_loss_psi = Number(inputs["pressure_loss_psi"]);
+    const depth_m = Number(inputs["depth_m"]);
+    const mud_density_grcc = Number(inputs["mud_density_grcc"]);
+    const errors: string[] = [];
+
+    if (isNaN(pressure_loss_psi) || pressure_loss_psi < 0) errors.push("Pérdida de presión debe ser mayor o igual que cero.");
+    if (isNaN(depth_m) || depth_m <= 0) errors.push("Profundidad debe ser mayor que cero.");
+    if (isNaN(mud_density_grcc) || mud_density_grcc <= 0) errors.push("Densidad base del lodo debe ser mayor que cero.");
+    if (errors.length > 0) return { value: 0, unit: "gr/cc", inputs, steps: [], warnings: [], errors };
+
+    const depth_ft = depth_m * 3.281;
+    const densityIncrement = pressure_loss_psi / (0.052 * depth_ft) / 8.33;
+    const ecd_grcc = densityIncrement + mud_density_grcc;
+
+    return {
+      value: ecd_grcc,
+      unit: "gr/cc",
+      inputs,
+      steps: [
+        `TVD = ${depth_m} × 3.281 = ${depth_ft.toFixed(6)} ft`,
+        `Incremento densidad = ${pressure_loss_psi} / (0.052 × ${depth_ft.toFixed(6)}) / 8.33 = ${densityIncrement.toFixed(12)} gr/cc`,
+        `ECD = ${densityIncrement.toFixed(12)} + ${mud_density_grcc} = ${ecd_grcc.toFixed(12)} gr/cc`,
+      ],
+      warnings: [],
+      errors: [],
+      additionalResults: [
+        { label: "Incremento densidad", value: densityIncrement, unit: "gr/cc" },
+        { label: "Profundidad", value: depth_ft, unit: "ft" },
+      ],
+    };
+  },
+};
+
+// ─────────────────────────────────────────────────────────────────────────────
+// 14. PRESIÓN HIDROSTÁTICA
+// Source: HIDRAULICA_RIVERO.xls · CALCULATE!S14 (relación ECD/DEC)
+// STATUS: BLOQUEADA — needsReview=true porque no hay output directo de presión hidrostática.
+// ─────────────────────────────────────────────────────────────────────────────
+// -----------------------------------------------------------------------------
+// HIDRAULICA: Perdida anular acumulada Rivero
+// Source: HIDRAULICA_RIVERO.xls - CALCULATE!R14 / ENTRY!U6
+// STATUS: VALIDADA - suma de intervalos Q11:Q14 contra celda directa.
+// -----------------------------------------------------------------------------
+const annularPressureLossRivero: Formula = {
+  id: "annular-pressure-loss-rivero",
+  name: "Perdida anular acumulada Rivero",
+  category: "Hidraulica",
+  description: "Suma perdidas de presion anular por intervalo para replicar CALCULATE!R14 de Rivero.",
+  icon: "gauge",
+  inputs: [
+    { key: "q11_psi", label: "Q11", unit: "psi", type: "number", required: true, min: 0, placeholder: "Ej: 346.918" },
+    { key: "q12_psi", label: "Q12", unit: "psi", type: "number", required: true, min: 0, placeholder: "Ej: 16.382" },
+    { key: "q13_psi", label: "Q13", unit: "psi", type: "number", required: true, min: 0, placeholder: "Ej: 10.604" },
+    { key: "q14_psi", label: "Q14", unit: "psi", type: "number", required: true, min: 0, placeholder: "Ej: 20.917" },
+  ],
+  output: { label: "Perdida anular acumulada", unit: "psi" },
+  formulaText: "R14 = Q11 + Q12 + Q13 + Q14",
+  references: [
+    "HIDRAULICA_RIVERO.xls - CALCULATE!R14 / ENTRY!U6",
+  ],
+  needsReview: false,
+  calculate(inputs) {
+    const q11_psi = Number(inputs["q11_psi"]);
+    const q12_psi = Number(inputs["q12_psi"]);
+    const q13_psi = Number(inputs["q13_psi"]);
+    const q14_psi = Number(inputs["q14_psi"]);
+    const errors: string[] = [];
+
+    if (isNaN(q11_psi) || q11_psi < 0) errors.push("Q11 debe ser mayor o igual que cero.");
+    if (isNaN(q12_psi) || q12_psi < 0) errors.push("Q12 debe ser mayor o igual que cero.");
+    if (isNaN(q13_psi) || q13_psi < 0) errors.push("Q13 debe ser mayor o igual que cero.");
+    if (isNaN(q14_psi) || q14_psi < 0) errors.push("Q14 debe ser mayor o igual que cero.");
+    if (errors.length > 0) return { value: 0, unit: "psi", inputs, steps: [], warnings: [], errors };
+
+    const annularLossPsi = q11_psi + q12_psi + q13_psi + q14_psi;
+
+    return {
+      value: annularLossPsi,
+      unit: "psi",
+      inputs,
+      steps: [
+        `R14 = ${q11_psi} + ${q12_psi} + ${q13_psi} + ${q14_psi}`,
+        `R14 = ${annularLossPsi.toFixed(12)} psi`,
+      ],
+      warnings: [],
+      errors: [],
+      additionalResults: [
+        { label: "Q11", value: q11_psi, unit: "psi" },
+        { label: "Q12", value: q12_psi, unit: "psi" },
+        { label: "Q13", value: q13_psi, unit: "psi" },
+        { label: "Q14", value: q14_psi, unit: "psi" },
+      ],
+    };
+  },
+};
+
+const hydrostaticPressure: Formula = {
+  id: "hydrostatic-pressure",
+  name: "Presión hidrostática",
+  category: "Hidráulica",
+  description: "Calcula presión hidrostática a partir de profundidad y densidad del fluido.",
+  icon: "gauge",
+  inputs: [
+    { key: "depth_m", label: "Profundidad", unit: "m", type: "number", required: true, min: 0.001, placeholder: "Ej: 3161" },
+    { key: "density_grcc", label: "Densidad del fluido", unit: "gr/cc", type: "number", required: true, min: 0.001, placeholder: "Ej: 1.29" },
+  ],
+  output: { label: "Presión hidrostática", unit: "kg/cm²" },
+  formulaText: "P(kg/cm²) = profundidad(m) × densidad(gr/cc) / 10; P(psi) = 0.052 × MW(ppg) × TVD(ft)",
+  references: [
+    "HIDRAULICA_RIVERO.xls — CALCULATE!S14 usa relación ECD con 0.052 × depth(ft) × MW(ppg)",
+  ],
+  needsReview: true,
+  calculate(inputs) {
+    const depth_m = Number(inputs["depth_m"]);
+    const density_grcc = Number(inputs["density_grcc"]);
+    const errors: string[] = [];
+
+    if (isNaN(depth_m) || depth_m <= 0) errors.push("Profundidad debe ser mayor que cero.");
+    if (isNaN(density_grcc) || density_grcc <= 0) errors.push("Densidad del fluido debe ser mayor que cero.");
+    if (errors.length > 0) return { value: 0, unit: "kg/cm²", inputs, steps: [], warnings: [], errors };
+
+    const pressure_kgcm2 = depth_m * density_grcc / 10;
+    const depth_ft = depth_m * 3.281;
+    const density_ppg = density_grcc * 8.33;
+    const pressure_psi = 0.052 * density_ppg * depth_ft;
+
+    return {
+      value: pressure_kgcm2,
+      unit: "kg/cm²",
+      inputs,
+      steps: [
+        `P = ${depth_m} × ${density_grcc} / 10 = ${pressure_kgcm2.toFixed(6)} kg/cm²`,
+        `TVD = ${depth_m} × 3.281 = ${depth_ft.toFixed(6)} ft`,
+        `MW = ${density_grcc} × 8.33 = ${density_ppg.toFixed(6)} ppg`,
+        `P = 0.052 × ${density_ppg.toFixed(6)} × ${depth_ft.toFixed(6)} = ${pressure_psi.toFixed(6)} psi`,
+      ],
+      warnings: [],
+      errors: [],
+      additionalResults: [
+        { label: "Presión", value: pressure_psi, unit: "psi" },
+        { label: "Profundidad", value: depth_ft, unit: "ft" },
+        { label: "Densidad", value: density_ppg, unit: "ppg" },
+      ],
+    };
+  },
+};
+
+// ─────────────────────────────────────────────────────────────────────────────
+// 15. HIDRÁULICA DE PERFORACIÓN
 // Source: HIDRAULICA_RIVERO.xls · Hydraulics_IPM.xls
 // STATUS: BLOQUEADA — needsReview=true. No muestra resultado como válido.
 // ─────────────────────────────────────────────────────────────────────────────
@@ -851,6 +1107,10 @@ const registry: Formula[] = [
   bachecologico,
   tfaNozzles,
   bitPressureLoss,
+  bitPressureLossFromNozzles,
+  ecdDecRivero,
+  annularPressureLossRivero,
+  hydrostaticPressure,
   hydraulics,
 ];
 

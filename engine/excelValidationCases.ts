@@ -5,7 +5,7 @@
 // to "validated" state.
 // ═════════════════════════════════════════════════════════════════════════════
 
-export type ValidationStatus = "validated" | "manual_pending";
+export type ValidationStatus = "validated" | "manual_pending" | "inferred_pending_validation";
 
 export interface ExcelValidationCase {
   formulaId: string;
@@ -184,22 +184,90 @@ export const excelValidationCases: ExcelValidationCase[] = [
     expectedValue: null,
     tolerance: 0.0001,
     status: "manual_pending",
-    notes: "Fórmula mapeada desde hidráulica: 156.5 * Q^2 * densidad / TFA^2. Pendiente capturar caso real exacto del Excel."
+    notes: "Pendiente validar variante con TFA directa. Rivero usa Σ nozzle², no TFA²."
   },
   {
     formulaId: "tfa-nozzles",
-    sourceFile: "Hydraulics_IPM.xls / HIDRAULICA_RIVERO.xls",
-    sourceSheet: "pendiente",
-    sourceCell: "pendiente",
+    sourceFile: "HIDRAULICA_RIVERO.xls",
+    sourceSheet: "ENTRY",
+    sourceCell: "C24",
     inputs: {
-      nozzle1_32: 12,
-      nozzle2_32: 12,
-      nozzle3_32: 12
+      nozzle1_32: 10,
+      nozzle2_32: 10,
+      nozzle3_32: 10,
+      nozzle4_32: 10,
+      nozzle5_32: 9,
+      nozzle6_32: 9
+    },
+    expectedValue: 0.43104869853205674,
+    tolerance: 0.0001,
+    status: "validated",
+    notes: "Validado contra ENTRY!C24. Fórmula original: suma de cuadrados de toberas / 1303.797."
+  },
+  {
+    formulaId: "bit-pressure-loss-from-nozzles",
+    sourceFile: "HIDRAULICA_RIVERO.xls",
+    sourceSheet: "ENTRY / CALCULATE",
+    sourceCell: "CALCULATE!C20 / ENTRY!U7",
+    inputs: {
+      q_gpm: 427.41067873139997,
+      density_grcc: 1.29,
+      nozzle1_32: 10,
+      nozzle2_32: 10,
+      nozzle3_32: 10,
+      nozzle4_32: 10,
+      nozzle5_32: 9,
+      nozzle6_32: 9
+    },
+    expectedValue: 972.6736700307072,
+    tolerance: 0.0001,
+    status: "validated",
+    notes: "Validado contra CALCULATE!C20 / ENTRY!U7. El Excel usa densidad gr/cc convertida a ppg con ×8.33 y divide por (Σ nozzle²)²."
+  },
+  {
+    formulaId: "hydrostatic-pressure",
+    sourceFile: "HIDRAULICA_RIVERO.xls",
+    sourceSheet: "ENTRY / CALCULATE",
+    sourceCell: "CALCULATE!S14 related formula",
+    inputs: {
+      depth_m: 3161,
+      density_grcc: 1.29
     },
     expectedValue: null,
     tolerance: 0.0001,
-    status: "manual_pending",
-    notes: "Fórmula mapeada para TFA por toberas. Pendiente capturar caso real exacto del Excel."
+    status: "inferred_pending_validation",
+    notes: "No se encontró output directo de presión hidrostática. Fórmula inferida desde DEC/ECD en CALCULATE!S14: R14/(0.052*C14*3.281)/8.33+ENTRY!$B$12."
+  },
+  {
+    formulaId: "ecd-dec-rivero",
+    sourceFile: "HIDRAULICA_RIVERO.xls",
+    sourceSheet: "CALCULATE",
+    sourceCell: "S14",
+    inputs: {
+      pressure_loss_psi: (1.3778862053674235 - 1.29) * 8.33 * 0.052 * 3161 * 3.281,
+      depth_m: 3161,
+      mud_density_grcc: 1.29
+    },
+    expectedValue: 1.3778862053674235,
+    tolerance: 0.0001,
+    status: "validated",
+    notes: "Validado contra CALCULATE!S14. Fórmula original: R14/(0.052*C14*3.281)/8.33+ENTRY!$B$12."
+  },
+  {
+    formulaId: "annular-pressure-loss-rivero",
+    sourceFile: "HIDRAULICA_RIVERO.xls",
+    sourceSheet: "CALCULATE / ENTRY",
+    sourceCell: "CALCULATE!R14 / ENTRY!U6",
+    inputs: {
+      q11_psi: 346.9184812326709,
+      q12_psi: 16.38171753498215,
+      q13_psi: 10.60379423336763,
+      q14_psi: 20.916589360581217
+    },
+    expectedValue: 394.8205823616019,
+    tolerance: 0.0001,
+    status: "validated",
+    notes: "Validado contra CALCULATE!R14. R14 = Q11 + Q12 + Q13 + Q14. Pendiente implementar cálculo dinámico de cada Q por intervalo."
   },
   {
     formulaId: "hydraulics",
