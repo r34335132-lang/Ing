@@ -164,6 +164,13 @@ function runAllTests(): void {
       expectedValue: 0,
       expectBlocked: true
     },
+    {
+      formulaId: "tfa-nozzles",
+      description: "BLOCKED: tfa-nozzles pendiente de caso exacto vs Excel",
+      inputs: { nozzle1_32: 12, nozzle2_32: 12, nozzle3_32: 12 },
+      expectedValue: 0,
+      expectBlocked: true
+    },
 
     // ── Tests de Errores de Input (Rechazo Fuerte) ─────────────────────────
     {
@@ -212,6 +219,20 @@ function runAllTests(): void {
       formulaId: "bit-pressure-loss",
       description: "ERROR: tfa_in2 <= 0",
       inputs: { q_gpm: 400, density_ppg: 10.5, tfa_in2: 0 },
+      expectedValue: 0,
+      expectError: true
+    },
+    {
+      formulaId: "tfa-nozzles",
+      description: "ERROR: todas las toberas son 0",
+      inputs: { nozzle1_32: 0, nozzle2_32: 0, nozzle3_32: 0 },
+      expectedValue: 0,
+      expectError: true
+    },
+    {
+      formulaId: "tfa-nozzles",
+      description: "ERROR: tobera negativa",
+      inputs: { nozzle1_32: -1, nozzle2_32: 12, nozzle3_32: 12 },
       expectedValue: 0,
       expectError: true
     }

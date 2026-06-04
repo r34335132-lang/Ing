@@ -682,7 +682,70 @@ const bachecologico: Formula = {
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
-// 10. CAÍDA DE PRESIÓN EN BARRENA
+// 10. TFA POR TOBERAS
+// Source: Hydraulics_IPM.xls · HIDRAULICA_RIVERO.xls
+// STATUS: BLOQUEADA — needsReview=true hasta validar caso numérico exacto.
+// ─────────────────────────────────────────────────────────────────────────────
+const tfaNozzles: Formula = {
+  id: "tfa-nozzles",
+  name: "TFA por toberas",
+  category: "Hidráulica",
+  description: "Calcula el área total de flujo (TFA) a partir de tamaños de toberas en 1/32 in.",
+  icon: "water",
+  inputs: [
+    { key: "nozzle1_32", label: "Tobera 1", unit: "1/32 in", type: "number", required: true, min: 0, max: 40, placeholder: "Ej: 12" },
+    { key: "nozzle2_32", label: "Tobera 2", unit: "1/32 in", type: "number", required: true, min: 0, max: 40, placeholder: "Ej: 12" },
+    { key: "nozzle3_32", label: "Tobera 3", unit: "1/32 in", type: "number", required: true, min: 0, max: 40, placeholder: "Ej: 12" },
+    { key: "nozzle4_32", label: "Tobera 4", unit: "1/32 in", type: "number", required: false, min: 0, max: 40, placeholder: "Opcional" },
+    { key: "nozzle5_32", label: "Tobera 5", unit: "1/32 in", type: "number", required: false, min: 0, max: 40, placeholder: "Opcional" },
+    { key: "nozzle6_32", label: "Tobera 6", unit: "1/32 in", type: "number", required: false, min: 0, max: 40, placeholder: "Opcional" },
+  ],
+  output: { label: "TFA", unit: "in²" },
+  formulaText: "TFA(in²) = Σ(nozzle²) × 0.000767",
+  references: [
+    "Hydraulics_IPM.xls — TFA / nozzle area",
+    "HIDRAULICA_RIVERO.xls — TFA por toberas",
+  ],
+  needsReview: true,
+  calculate(inputs) {
+    const nozzleKeys = ["nozzle1_32", "nozzle2_32", "nozzle3_32", "nozzle4_32", "nozzle5_32", "nozzle6_32"];
+    const errors: string[] = [];
+    const nozzles = nozzleKeys.map((key) => {
+      const rawValue = inputs[key];
+      const value = rawValue === undefined || rawValue === "" ? 0 : Number(rawValue);
+
+      if (isNaN(value)) errors.push(`${key} debe ser numérico.`);
+      if (!isNaN(value) && value < 0) errors.push(`${key} no debe ser negativo.`);
+      if (!isNaN(value) && value > 40) errors.push(`${key} no debe ser mayor a 40.`);
+
+      return isNaN(value) ? 0 : value;
+    });
+
+    if (!nozzles.some((nozzle) => nozzle > 0)) errors.push("Al menos una tobera debe ser mayor que cero.");
+    if (errors.length > 0) return { value: 0, unit: "in²", inputs, steps: [], warnings: [], errors };
+
+    const sumSquares = nozzles.reduce((sum, nozzle) => sum + nozzle * nozzle, 0);
+    const tfa_in2 = sumSquares * 0.000767;
+
+    if (tfa_in2 <= 0) errors.push("TFA final debe ser mayor que cero.");
+    if (errors.length > 0) return { value: 0, unit: "in²", inputs, steps: [], warnings: [], errors };
+
+    return {
+      value: tfa_in2,
+      unit: "in²",
+      inputs,
+      steps: [
+        `Suma de cuadrados: ${nozzles.join("² + ")}² = ${sumSquares.toFixed(4)}`,
+        `TFA = ${sumSquares.toFixed(4)} × 0.000767 = ${tfa_in2.toFixed(6)} in²`,
+      ],
+      warnings: [],
+      errors: [],
+    };
+  },
+};
+
+// ─────────────────────────────────────────────────────────────────────────────
+// 11. CAÍDA DE PRESIÓN EN BARRENA
 // Source: HIDRAULICA_RIVERO.xls · ENTRY!U7 / CALCULATE!C20
 // STATUS: BLOQUEADA — needsReview=true hasta validar caso numérico exacto.
 // ─────────────────────────────────────────────────────────────────────────────
@@ -732,7 +795,7 @@ const bitPressureLoss: Formula = {
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
-// 11. HIDRÁULICA DE PERFORACIÓN
+// 12. HIDRÁULICA DE PERFORACIÓN
 // Source: HIDRAULICA_RIVERO.xls · Hydraulics_IPM.xls
 // STATUS: BLOQUEADA — needsReview=true. No muestra resultado como válido.
 // ─────────────────────────────────────────────────────────────────────────────
@@ -786,6 +849,7 @@ const registry: Formula[] = [
   coiledTubing,
   fillPenetrationVelocity,
   bachecologico,
+  tfaNozzles,
   bitPressureLoss,
   hydraulics,
 ];

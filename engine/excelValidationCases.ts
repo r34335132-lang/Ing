@@ -187,6 +187,21 @@ export const excelValidationCases: ExcelValidationCase[] = [
     notes: "Fórmula mapeada desde hidráulica: 156.5 * Q^2 * densidad / TFA^2. Pendiente capturar caso real exacto del Excel."
   },
   {
+    formulaId: "tfa-nozzles",
+    sourceFile: "Hydraulics_IPM.xls / HIDRAULICA_RIVERO.xls",
+    sourceSheet: "pendiente",
+    sourceCell: "pendiente",
+    inputs: {
+      nozzle1_32: 12,
+      nozzle2_32: 12,
+      nozzle3_32: 12
+    },
+    expectedValue: null,
+    tolerance: 0.0001,
+    status: "manual_pending",
+    notes: "Fórmula mapeada para TFA por toberas. Pendiente capturar caso real exacto del Excel."
+  },
+  {
     formulaId: "hydraulics",
     sourceFile: "HIDRAULICA_RIVERO.xls",
     sourceSheet: "ECD",
