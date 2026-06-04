@@ -270,6 +270,74 @@ export const excelValidationCases: ExcelValidationCase[] = [
     notes: "Validado contra CALCULATE!R14. R14 = Q11 + Q12 + Q13 + Q14. Pendiente implementar cálculo dinámico de cada Q por intervalo."
   },
   {
+    formulaId: "annular-interval-loss-rivero",
+    sourceFile: "HIDRAULICA_RIVERO.xls",
+    sourceSheet: "CALCULATE",
+    sourceCell: "Q14",
+    inputs: {
+      friction_factor: 0.0137326843817037,
+      annular_velocity_ft_min: 348.76711384482235,
+      density_grcc: 1.29,
+      depth_start_m: 3095,
+      depth_end_m: 3161,
+      hole_diameter_in: 8.5,
+      pipe_od_in: 6.5
+    },
+    expectedValue: 20.916589360581217,
+    tolerance: 0.0001,
+    status: "validated",
+    notes: "Validado contra CALCULATE!Q14. Fórmula original: O14*(G14/60)^2*ENTRY!$B$12*8.33*(C14-C13)*3.281/(25.81*(D14-E14))."
+  },
+  {
+    formulaId: "internal-interval-loss-rivero",
+    sourceFile: "HIDRAULICA_RIVERO.xls",
+    sourceSheet: "CALCULATE",
+    sourceCell: "T14",
+    inputs: {
+      friction_factor: 0.004866295486027634,
+      internal_velocity_ft_min: 1162.5570461494078,
+      density_grcc: 1.29,
+      depth_start_m: 3095,
+      depth_end_m: 3161,
+      pipe_id_in: 3
+    },
+    expectedValue: 54.90351370082147,
+    tolerance: 0.0001,
+    status: "validated",
+    notes: "Validado contra CALCULATE!T14. Formula original: P14*(H14/60)^2*(C14-C13)*3.281*ENTRY!B12*8.33/(25.81*F14)."
+  },
+  {
+    formulaId: "internal-pressure-loss-rivero",
+    sourceFile: "HIDRAULICA_RIVERO.xls",
+    sourceSheet: "CALCULATE / ENTRY",
+    sourceCell: "CALCULATE!U14 / ENTRY!U5",
+    inputs: {
+      t11_psi: 706.082765511623,
+      t12_psi: 114.79825591989943,
+      t13_psi: 28.74115755096048,
+      t14_psi: 54.90351370082147
+    },
+    expectedValue: 904.5256926833044,
+    tolerance: 0.0001,
+    status: "validated",
+    notes: "Validado contra CALCULATE!U14. U14 = T11 + T12 + T13 + T14. Pendiente implementar calculo dinamico de cada T por intervalo."
+  },
+  {
+    formulaId: "total-pressure-loss-rivero",
+    sourceFile: "HIDRAULICA_RIVERO.xls",
+    sourceSheet: "CALCULATE",
+    sourceCell: "C16",
+    inputs: {
+      annular_loss_psi: 394.8205823616019,
+      internal_loss_psi: 904.5256926833044,
+      bit_loss_psi: 972.6736700307072
+    },
+    expectedValue: 2272.019945075613,
+    tolerance: 0.0001,
+    status: "validated",
+    notes: "Validado contra CALCULATE!C16. Formula original: C16 = R14 + U14 + C20."
+  },
+  {
     formulaId: "hydraulics",
     sourceFile: "HIDRAULICA_RIVERO.xls",
     sourceSheet: "ECD",

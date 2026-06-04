@@ -942,6 +942,80 @@ const ecdDecRivero: Formula = {
 // STATUS: BLOQUEADA — needsReview=true porque no hay output directo de presión hidrostática.
 // ─────────────────────────────────────────────────────────────────────────────
 // -----------------------------------------------------------------------------
+// HIDRAULICA: Perdida anular por intervalo Rivero
+// Source: HIDRAULICA_RIVERO.xls - CALCULATE!Q14
+// STATUS: VALIDADA - caso directo Q14.
+// -----------------------------------------------------------------------------
+const annularIntervalLossRivero: Formula = {
+  id: "annular-interval-loss-rivero",
+  name: "Perdida anular por intervalo Rivero",
+  category: "Hidraulica",
+  description: "Calcula la perdida de presion anular de un intervalo usando la formula Rivero.",
+  icon: "gauge",
+  inputs: [
+    { key: "friction_factor", label: "Factor de friccion", unit: "", type: "number", required: true, min: 0.000001, placeholder: "Ej: 0.0137" },
+    { key: "annular_velocity_ft_min", label: "Velocidad anular", unit: "ft/min", type: "number", required: true, min: 0, placeholder: "Ej: 348.767" },
+    { key: "density_grcc", label: "Densidad", unit: "gr/cc", type: "number", required: true, min: 0.000001, placeholder: "Ej: 1.29" },
+    { key: "depth_start_m", label: "Profundidad inicial", unit: "m", type: "number", required: true, placeholder: "Ej: 2584.229" },
+    { key: "depth_end_m", label: "Profundidad final", unit: "m", type: "number", required: true, placeholder: "Ej: 3161" },
+    { key: "hole_diameter_in", label: "Diametro agujero", unit: "in", type: "number", required: true, min: 0.000001, placeholder: "Ej: 8.5" },
+    { key: "pipe_od_in", label: "Diametro exterior tuberia", unit: "in", type: "number", required: true, min: 0.000001, placeholder: "Ej: 6.5" },
+  ],
+  output: { label: "Perdida anular por intervalo", unit: "psi" },
+  formulaText: "DeltaP_anular = f x (Va/60)^2 x MW x DeltaL(ft) / (25.81 x (Dh - Dp))",
+  references: [
+    "HIDRAULICA_RIVERO.xls - CALCULATE!Q14",
+  ],
+  needsReview: false,
+  calculate(inputs) {
+    const friction_factor = Number(inputs["friction_factor"]);
+    const annular_velocity_ft_min = Number(inputs["annular_velocity_ft_min"]);
+    const density_grcc = Number(inputs["density_grcc"]);
+    const depth_start_m = Number(inputs["depth_start_m"]);
+    const depth_end_m = Number(inputs["depth_end_m"]);
+    const hole_diameter_in = Number(inputs["hole_diameter_in"]);
+    const pipe_od_in = Number(inputs["pipe_od_in"]);
+    const errors: string[] = [];
+
+    if (isNaN(friction_factor) || friction_factor <= 0) errors.push("Factor de friccion debe ser mayor que cero.");
+    if (isNaN(annular_velocity_ft_min) || annular_velocity_ft_min < 0) errors.push("Velocidad anular debe ser mayor o igual que cero.");
+    if (isNaN(density_grcc) || density_grcc <= 0) errors.push("Densidad debe ser mayor que cero.");
+    if (isNaN(depth_start_m)) errors.push("Profundidad inicial debe ser numerica.");
+    if (isNaN(depth_end_m) || depth_end_m <= depth_start_m) errors.push("Profundidad final debe ser mayor que la profundidad inicial.");
+    if (isNaN(pipe_od_in) || pipe_od_in <= 0) errors.push("Diametro exterior de tuberia debe ser mayor que cero.");
+    if (isNaN(hole_diameter_in) || hole_diameter_in <= pipe_od_in) errors.push("Diametro de agujero debe ser mayor que el diametro exterior de tuberia.");
+    if (errors.length > 0) return { value: 0, unit: "psi", inputs, steps: [], warnings: [], errors };
+
+    const mw_ppg = density_grcc * 8.33;
+    const interval_length_m = depth_end_m - depth_start_m;
+    const interval_length_ft = interval_length_m * 3.281;
+    const velocity_ft_s = annular_velocity_ft_min / 60;
+    const annular_clearance_in = hole_diameter_in - pipe_od_in;
+    const loss_psi = friction_factor * velocity_ft_s ** 2 * mw_ppg * interval_length_ft / (25.81 * annular_clearance_in);
+
+    return {
+      value: loss_psi,
+      unit: "psi",
+      inputs,
+      steps: [
+        `MW = ${density_grcc} x 8.33 = ${mw_ppg.toFixed(12)} ppg`,
+        `DeltaL = (${depth_end_m} - ${depth_start_m}) x 3.281 = ${interval_length_ft.toFixed(12)} ft`,
+        `Va = ${annular_velocity_ft_min} / 60 = ${velocity_ft_s.toFixed(12)} ft/s`,
+        `DeltaP = ${loss_psi.toFixed(12)} psi`,
+      ],
+      warnings: [],
+      errors: [],
+      additionalResults: [
+        { label: "MW", value: mw_ppg, unit: "ppg" },
+        { label: "Longitud intervalo", value: interval_length_ft, unit: "ft" },
+        { label: "Velocidad", value: velocity_ft_s, unit: "ft/s" },
+        { label: "Claro anular", value: annular_clearance_in, unit: "in" },
+      ],
+    };
+  },
+};
+
+// -----------------------------------------------------------------------------
 // HIDRAULICA: Perdida anular acumulada Rivero
 // Source: HIDRAULICA_RIVERO.xls - CALCULATE!R14 / ENTRY!U6
 // STATUS: VALIDADA - suma de intervalos Q11:Q14 contra celda directa.
@@ -994,6 +1068,252 @@ const annularPressureLossRivero: Formula = {
         { label: "Q12", value: q12_psi, unit: "psi" },
         { label: "Q13", value: q13_psi, unit: "psi" },
         { label: "Q14", value: q14_psi, unit: "psi" },
+      ],
+    };
+  },
+};
+
+// -----------------------------------------------------------------------------
+// HIDRAULICA: Perdida interna por intervalo Rivero
+// Source: HIDRAULICA_RIVERO.xls - CALCULATE!T14
+// STATUS: VALIDADA - caso directo T14.
+// -----------------------------------------------------------------------------
+const internalIntervalLossRivero: Formula = {
+  id: "internal-interval-loss-rivero",
+  name: "Perdida interna por intervalo Rivero",
+  category: "Hidraulica",
+  description: "Calcula la perdida de presion interna de un intervalo usando la formula Rivero.",
+  icon: "gauge",
+  inputs: [
+    { key: "friction_factor", label: "Factor de friccion", unit: "", type: "number", required: true, min: 0.000001, placeholder: "Ej: 0.00487" },
+    { key: "internal_velocity_ft_min", label: "Velocidad interna", unit: "ft/min", type: "number", required: true, min: 0, placeholder: "Ej: 1162.557" },
+    { key: "density_grcc", label: "Densidad", unit: "gr/cc", type: "number", required: true, min: 0.000001, placeholder: "Ej: 1.29" },
+    { key: "depth_start_m", label: "Profundidad inicial", unit: "m", type: "number", required: true, placeholder: "Ej: 3095" },
+    { key: "depth_end_m", label: "Profundidad final", unit: "m", type: "number", required: true, placeholder: "Ej: 3161" },
+    { key: "pipe_id_in", label: "DI tuberia", unit: "in", type: "number", required: true, min: 0.000001, placeholder: "Ej: 3" },
+  ],
+  output: { label: "Perdida interna por intervalo", unit: "psi" },
+  formulaText: "DeltaP_interna = f x (Vi/60)^2 x MW x DeltaL(ft) / (25.81 x ID)",
+  references: [
+    "HIDRAULICA_RIVERO.xls - CALCULATE!T14",
+  ],
+  needsReview: false,
+  calculate(inputs) {
+    const friction_factor = Number(inputs["friction_factor"]);
+    const internal_velocity_ft_min = Number(inputs["internal_velocity_ft_min"]);
+    const density_grcc = Number(inputs["density_grcc"]);
+    const depth_start_m = Number(inputs["depth_start_m"]);
+    const depth_end_m = Number(inputs["depth_end_m"]);
+    const pipe_id_in = Number(inputs["pipe_id_in"]);
+    const errors: string[] = [];
+
+    if (isNaN(friction_factor) || friction_factor <= 0) errors.push("Factor de friccion debe ser mayor que cero.");
+    if (isNaN(internal_velocity_ft_min) || internal_velocity_ft_min < 0) errors.push("Velocidad interna debe ser mayor o igual que cero.");
+    if (isNaN(density_grcc) || density_grcc <= 0) errors.push("Densidad debe ser mayor que cero.");
+    if (isNaN(depth_start_m)) errors.push("Profundidad inicial debe ser numerica.");
+    if (isNaN(depth_end_m) || depth_end_m <= depth_start_m) errors.push("Profundidad final debe ser mayor que la profundidad inicial.");
+    if (isNaN(pipe_id_in) || pipe_id_in <= 0) errors.push("DI tuberia debe ser mayor que cero.");
+    if (errors.length > 0) return { value: 0, unit: "psi", inputs, steps: [], warnings: [], errors };
+
+    const mw_ppg = density_grcc * 8.33;
+    const interval_length_m = depth_end_m - depth_start_m;
+    const interval_length_ft = interval_length_m * 3.281;
+    const velocity_ft_s = internal_velocity_ft_min / 60;
+    const loss_psi = friction_factor * velocity_ft_s ** 2 * interval_length_ft * mw_ppg / (25.81 * pipe_id_in);
+
+    return {
+      value: loss_psi,
+      unit: "psi",
+      inputs,
+      steps: [
+        `MW = ${density_grcc} x 8.33 = ${mw_ppg.toFixed(12)} ppg`,
+        `DeltaL = (${depth_end_m} - ${depth_start_m}) x 3.281 = ${interval_length_ft.toFixed(12)} ft`,
+        `Vi = ${internal_velocity_ft_min} / 60 = ${velocity_ft_s.toFixed(12)} ft/s`,
+        `DeltaP = ${loss_psi.toFixed(12)} psi`,
+      ],
+      warnings: [],
+      errors: [],
+      additionalResults: [
+        { label: "MW", value: mw_ppg, unit: "ppg" },
+        { label: "Longitud intervalo", value: interval_length_ft, unit: "ft" },
+        { label: "Velocidad", value: velocity_ft_s, unit: "ft/s" },
+        { label: "DI tuberia", value: pipe_id_in, unit: "in" },
+      ],
+    };
+  },
+};
+
+// -----------------------------------------------------------------------------
+// HIDRAULICA: Perdida interna acumulada Rivero
+// Source: HIDRAULICA_RIVERO.xls - CALCULATE!U14 / ENTRY!U5
+// STATUS: VALIDADA - suma de intervalos T11:T14 contra celda directa.
+// -----------------------------------------------------------------------------
+const internalPressureLossRivero: Formula = {
+  id: "internal-pressure-loss-rivero",
+  name: "Perdida interna acumulada Rivero",
+  category: "Hidraulica",
+  description: "Suma perdidas de presion interna por intervalo para replicar CALCULATE!U14 de Rivero.",
+  icon: "gauge",
+  inputs: [
+    { key: "t11_psi", label: "T11", unit: "psi", type: "number", required: true, min: 0, placeholder: "Ej: 706.083" },
+    { key: "t12_psi", label: "T12", unit: "psi", type: "number", required: true, min: 0, placeholder: "Ej: 114.798" },
+    { key: "t13_psi", label: "T13", unit: "psi", type: "number", required: true, min: 0, placeholder: "Ej: 28.741" },
+    { key: "t14_psi", label: "T14", unit: "psi", type: "number", required: true, min: 0, placeholder: "Ej: 54.904" },
+  ],
+  output: { label: "Perdida interna acumulada", unit: "psi" },
+  formulaText: "U14 = T11 + T12 + T13 + T14",
+  references: [
+    "HIDRAULICA_RIVERO.xls - CALCULATE!U14 / ENTRY!U5",
+  ],
+  needsReview: false,
+  calculate(inputs) {
+    const t11_psi = Number(inputs["t11_psi"]);
+    const t12_psi = Number(inputs["t12_psi"]);
+    const t13_psi = Number(inputs["t13_psi"]);
+    const t14_psi = Number(inputs["t14_psi"]);
+    const errors: string[] = [];
+
+    if (isNaN(t11_psi) || t11_psi < 0) errors.push("T11 debe ser mayor o igual que cero.");
+    if (isNaN(t12_psi) || t12_psi < 0) errors.push("T12 debe ser mayor o igual que cero.");
+    if (isNaN(t13_psi) || t13_psi < 0) errors.push("T13 debe ser mayor o igual que cero.");
+    if (isNaN(t14_psi) || t14_psi < 0) errors.push("T14 debe ser mayor o igual que cero.");
+    if (errors.length > 0) return { value: 0, unit: "psi", inputs, steps: [], warnings: [], errors };
+
+    const internalLossPsi = t11_psi + t12_psi + t13_psi + t14_psi;
+
+    return {
+      value: internalLossPsi,
+      unit: "psi",
+      inputs,
+      steps: [
+        `U14 = ${t11_psi} + ${t12_psi} + ${t13_psi} + ${t14_psi}`,
+        `U14 = ${internalLossPsi.toFixed(12)} psi`,
+      ],
+      warnings: [],
+      errors: [],
+      additionalResults: [
+        { label: "T11", value: t11_psi, unit: "psi" },
+        { label: "T12", value: t12_psi, unit: "psi" },
+        { label: "T13", value: t13_psi, unit: "psi" },
+        { label: "T14", value: t14_psi, unit: "psi" },
+      ],
+    };
+  },
+};
+
+// -----------------------------------------------------------------------------
+// HIDRAULICA: Presion total Rivero
+// Source: HIDRAULICA_RIVERO.xls - CALCULATE!C16
+// STATUS: VALIDADA - suma R14 + U14 + C20 contra celda directa.
+// -----------------------------------------------------------------------------
+const totalPressureLossRivero: Formula = {
+  id: "total-pressure-loss-rivero",
+  name: "Presion total Rivero",
+  category: "Hidraulica",
+  description: "Suma perdida anular, perdida interna y caida en barrena para replicar CALCULATE!C16 de Rivero.",
+  icon: "gauge",
+  inputs: [
+    { key: "annular_loss_psi", label: "Perdida anular", unit: "psi", type: "number", required: true, min: 0, placeholder: "Ej: 394.821" },
+    { key: "internal_loss_psi", label: "Perdida interna", unit: "psi", type: "number", required: true, min: 0, placeholder: "Ej: 904.526" },
+    { key: "bit_loss_psi", label: "Caida en barrena", unit: "psi", type: "number", required: true, min: 0, placeholder: "Ej: 972.674" },
+  ],
+  output: { label: "Presion total", unit: "psi" },
+  formulaText: "P_total = DeltaP_anular + DeltaP_interna + DeltaP_bit",
+  references: [
+    "HIDRAULICA_RIVERO.xls - CALCULATE!C16",
+  ],
+  needsReview: false,
+  calculate(inputs) {
+    const annular_loss_psi = Number(inputs["annular_loss_psi"]);
+    const internal_loss_psi = Number(inputs["internal_loss_psi"]);
+    const bit_loss_psi = Number(inputs["bit_loss_psi"]);
+    const errors: string[] = [];
+
+    if (isNaN(annular_loss_psi) || annular_loss_psi < 0) errors.push("Perdida anular debe ser mayor o igual que cero.");
+    if (isNaN(internal_loss_psi) || internal_loss_psi < 0) errors.push("Perdida interna debe ser mayor o igual que cero.");
+    if (isNaN(bit_loss_psi) || bit_loss_psi < 0) errors.push("Caida en barrena debe ser mayor o igual que cero.");
+    if (errors.length > 0) return { value: 0, unit: "psi", inputs, steps: [], warnings: [], errors };
+
+    const totalPressurePsi = annular_loss_psi + internal_loss_psi + bit_loss_psi;
+
+    return {
+      value: totalPressurePsi,
+      unit: "psi",
+      inputs,
+      steps: [
+        `C16 = ${annular_loss_psi} + ${internal_loss_psi} + ${bit_loss_psi}`,
+        `C16 = ${totalPressurePsi.toFixed(12)} psi`,
+      ],
+      warnings: [],
+      errors: [],
+      additionalResults: [
+        { label: "Perdida anular", value: annular_loss_psi, unit: "psi" },
+        { label: "Perdida interna", value: internal_loss_psi, unit: "psi" },
+        { label: "Caida en barrena", value: bit_loss_psi, unit: "psi" },
+      ],
+    };
+  },
+};
+
+// -----------------------------------------------------------------------------
+// HIDRAULICA: Resumen hidraulico Rivero
+// Source: HIDRAULICA_RIVERO.xls - CALCULATE!C16, S14, R14, U14, C20
+// STATUS: VALIDADA - resumen compuesto contra outputs principales.
+// -----------------------------------------------------------------------------
+const riveroHydraulicsSummary: Formula = {
+  id: "rivero-hydraulics-summary",
+  name: "Resumen hidraulico Rivero",
+  category: "Hidraulica",
+  description: "Calcula presion total y ECD/DEC usando perdidas hidraulicas principales del metodo Rivero.",
+  icon: "gauge",
+  inputs: [
+    { key: "internal_loss_psi", label: "Perdida interna", unit: "psi", type: "number", required: true, min: 0, placeholder: "Ej: 904.526" },
+    { key: "annular_loss_psi", label: "Perdida anular", unit: "psi", type: "number", required: true, min: 0, placeholder: "Ej: 394.821" },
+    { key: "bit_loss_psi", label: "Caida en barrena", unit: "psi", type: "number", required: true, min: 0, placeholder: "Ej: 972.674" },
+    { key: "depth_m", label: "Profundidad", unit: "m", type: "number", required: true, min: 0.001, placeholder: "Ej: 3161" },
+    { key: "mud_density_grcc", label: "Densidad base del lodo", unit: "gr/cc", type: "number", required: true, min: 0.001, placeholder: "Ej: 1.29" },
+  ],
+  output: { label: "Presion total", unit: "psi" },
+  formulaText: "P_total = DeltaP_int + DeltaP_anular + DeltaP_bit; ECD = DeltaP_anular/(0.052 x TVD(ft))/8.33 + MW(gr/cc)",
+  references: [
+    "HIDRAULICA_RIVERO.xls - CALCULATE!C16, S14, R14, U14, C20",
+  ],
+  needsReview: false,
+  calculate(inputs) {
+    const internal_loss_psi = Number(inputs["internal_loss_psi"]);
+    const annular_loss_psi = Number(inputs["annular_loss_psi"]);
+    const bit_loss_psi = Number(inputs["bit_loss_psi"]);
+    const depth_m = Number(inputs["depth_m"]);
+    const mud_density_grcc = Number(inputs["mud_density_grcc"]);
+    const errors: string[] = [];
+
+    if (isNaN(internal_loss_psi) || internal_loss_psi < 0) errors.push("Perdida interna debe ser mayor o igual que cero.");
+    if (isNaN(annular_loss_psi) || annular_loss_psi < 0) errors.push("Perdida anular debe ser mayor o igual que cero.");
+    if (isNaN(bit_loss_psi) || bit_loss_psi < 0) errors.push("Caida en barrena debe ser mayor o igual que cero.");
+    if (isNaN(depth_m) || depth_m <= 0) errors.push("Profundidad debe ser mayor que cero.");
+    if (isNaN(mud_density_grcc) || mud_density_grcc <= 0) errors.push("Densidad base del lodo debe ser mayor que cero.");
+    if (errors.length > 0) return { value: 0, unit: "psi", inputs, steps: [], warnings: [], errors };
+
+    const depth_ft = depth_m * 3.281;
+    const total_pressure_psi = internal_loss_psi + annular_loss_psi + bit_loss_psi;
+    const ecd_grcc = annular_loss_psi / (0.052 * depth_ft) / 8.33 + mud_density_grcc;
+
+    return {
+      value: total_pressure_psi,
+      unit: "psi",
+      inputs,
+      steps: [
+        `P_total = ${internal_loss_psi} + ${annular_loss_psi} + ${bit_loss_psi} = ${total_pressure_psi.toFixed(12)} psi`,
+        `TVD = ${depth_m} x 3.281 = ${depth_ft.toFixed(6)} ft`,
+        `ECD = ${annular_loss_psi} / (0.052 x ${depth_ft.toFixed(6)}) / 8.33 + ${mud_density_grcc} = ${ecd_grcc.toFixed(12)} gr/cc`,
+      ],
+      warnings: [],
+      errors: [],
+      additionalResults: [
+        { label: "Perdida interna", value: internal_loss_psi, unit: "psi" },
+        { label: "Perdida anular", value: annular_loss_psi, unit: "psi" },
+        { label: "Caida en barrena", value: bit_loss_psi, unit: "psi" },
+        { label: "ECD / DEC", value: ecd_grcc, unit: "gr/cc" },
       ],
     };
   },
@@ -1109,7 +1429,12 @@ const registry: Formula[] = [
   bitPressureLoss,
   bitPressureLossFromNozzles,
   ecdDecRivero,
+  annularIntervalLossRivero,
   annularPressureLossRivero,
+  internalIntervalLossRivero,
+  internalPressureLossRivero,
+  totalPressureLossRivero,
+  riveroHydraulicsSummary,
   hydrostaticPressure,
   hydraulics,
 ];

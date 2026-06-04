@@ -206,6 +206,81 @@ function runAllTests(): void {
       }
     },
     {
+      formulaId: "annular-interval-loss-rivero",
+      description: "Validacion real vs HIDRAULICA_RIVERO.xls CALCULATE!Q14",
+      inputs: {
+        friction_factor: 0.0137326843817037,
+        annular_velocity_ft_min: 348.76711384482235,
+        density_grcc: 1.29,
+        depth_start_m: 3095,
+        depth_end_m: 3161,
+        hole_diameter_in: 8.5,
+        pipe_od_in: 6.5
+      },
+      expectedValue: 20.916589360581217,
+      tolerance: 0.0001,
+      expectedAdditionalResults: {
+        "MW|ppg": 10.745700000000001,
+        "Longitud intervalo|ft": 216.546,
+        "Velocidad|ft/s": 5.812785230747039,
+        "Claro anular|in": 2
+      }
+    },
+    {
+      formulaId: "internal-pressure-loss-rivero",
+      description: "Validacion real vs HIDRAULICA_RIVERO.xls CALCULATE!U14 / ENTRY!U5",
+      inputs: {
+        t11_psi: 706.082765511623,
+        t12_psi: 114.79825591989943,
+        t13_psi: 28.74115755096048,
+        t14_psi: 54.90351370082147
+      },
+      expectedValue: 904.5256926833044,
+      tolerance: 0.0001,
+      expectedAdditionalResults: {
+        "T11|psi": 706.082765511623,
+        "T12|psi": 114.79825591989943,
+        "T13|psi": 28.74115755096048,
+        "T14|psi": 54.90351370082147
+      }
+    },
+    {
+      formulaId: "internal-interval-loss-rivero",
+      description: "Validacion real vs HIDRAULICA_RIVERO.xls CALCULATE!T14",
+      inputs: {
+        friction_factor: 0.004866295486027634,
+        internal_velocity_ft_min: 1162.5570461494078,
+        density_grcc: 1.29,
+        depth_start_m: 3095,
+        depth_end_m: 3161,
+        pipe_id_in: 3
+      },
+      expectedValue: 54.90351370082147,
+      tolerance: 0.0001,
+      expectedAdditionalResults: {
+        "MW|ppg": 10.745700000000001,
+        "Longitud intervalo|ft": 216.546,
+        "Velocidad|ft/s": 19.375950769156796,
+        "DI tuberia|in": 3
+      }
+    },
+    {
+      formulaId: "total-pressure-loss-rivero",
+      description: "Validacion real vs HIDRAULICA_RIVERO.xls CALCULATE!C16",
+      inputs: {
+        annular_loss_psi: 394.8205823616019,
+        internal_loss_psi: 904.5256926833044,
+        bit_loss_psi: 972.6736700307072
+      },
+      expectedValue: 2272.019945075613,
+      tolerance: 0.0001,
+      expectedAdditionalResults: {
+        "Perdida anular|psi": 394.8205823616019,
+        "Perdida interna|psi": 904.5256926833044,
+        "Caida en barrena|psi": 972.6736700307072
+      }
+    },
+    {
       formulaId: "hydraulics",
       description: "BLOCKED: Hydraulics pendiente de validación vs Excel",
       inputs: { flow_gpm: 400, mud_ppg: 10.5, pv_cp: 20, yp_lbft2: 15, dp_id_in: 4.276, hole_in: 8.5, depth_ft: 8000 },
@@ -326,6 +401,87 @@ function runAllTests(): void {
         q12_psi: 16.38171753498215,
         q13_psi: 10.60379423336763,
         q14_psi: 20.916589360581217
+      },
+      expectedValue: 0,
+      expectError: true
+    },
+    {
+      formulaId: "annular-interval-loss-rivero",
+      description: "ERROR: depth_end_m <= depth_start_m",
+      inputs: {
+        friction_factor: 0.0137326843817037,
+        annular_velocity_ft_min: 348.76711384482235,
+        density_grcc: 1.29,
+        depth_start_m: 3161,
+        depth_end_m: 2584.2285714285717,
+        hole_diameter_in: 8.5,
+        pipe_od_in: 6.5
+      },
+      expectedValue: 0,
+      expectError: true
+    },
+    {
+      formulaId: "annular-interval-loss-rivero",
+      description: "ERROR: hole_diameter_in <= pipe_od_in",
+      inputs: {
+        friction_factor: 0.0137326843817037,
+        annular_velocity_ft_min: 348.76711384482235,
+        density_grcc: 1.29,
+        depth_start_m: 3095,
+        depth_end_m: 3161,
+        hole_diameter_in: 6.5,
+        pipe_od_in: 8.5
+      },
+      expectedValue: 0,
+      expectError: true
+    },
+    {
+      formulaId: "internal-pressure-loss-rivero",
+      description: "ERROR: t11_psi < 0",
+      inputs: {
+        t11_psi: -1,
+        t12_psi: 114.79825591989943,
+        t13_psi: 28.74115755096048,
+        t14_psi: 54.90351370082147
+      },
+      expectedValue: 0,
+      expectError: true
+    },
+    {
+      formulaId: "internal-interval-loss-rivero",
+      description: "ERROR: depth_end_m <= depth_start_m",
+      inputs: {
+        friction_factor: 0.004866295486027634,
+        internal_velocity_ft_min: 1162.5570461494078,
+        density_grcc: 1.29,
+        depth_start_m: 3161,
+        depth_end_m: 3095,
+        pipe_id_in: 3
+      },
+      expectedValue: 0,
+      expectError: true
+    },
+    {
+      formulaId: "internal-interval-loss-rivero",
+      description: "ERROR: pipe_id_in <= 0",
+      inputs: {
+        friction_factor: 0.004866295486027634,
+        internal_velocity_ft_min: 1162.5570461494078,
+        density_grcc: 1.29,
+        depth_start_m: 3095,
+        depth_end_m: 3161,
+        pipe_id_in: 0
+      },
+      expectedValue: 0,
+      expectError: true
+    },
+    {
+      formulaId: "total-pressure-loss-rivero",
+      description: "ERROR: annular_loss_psi < 0",
+      inputs: {
+        annular_loss_psi: -1,
+        internal_loss_psi: 904.5256926833044,
+        bit_loss_psi: 972.6736700307072
       },
       expectedValue: 0,
       expectError: true
